@@ -1,0 +1,65 @@
+<%- include('partials/header_vietnamese') %>
+
+<div class="container" style="text-align: center; margin-top: 15vh;">
+    <article>
+        <hgroup>
+            <h1>Đang tạo Key...</h1>
+            <p>Hệ thống đang xử lý, vui lòng đợi thanh tiến trình hoàn tất.</p>
+        </hgroup>
+
+        <progress id="progress-bar" value="0" max="100" style="width: 100%;"></progress>
+        <p>Còn lại <span id="timer" style="font-weight: bold;">10</span> giây</p>
+
+        <div id="result-container">
+             <!-- Nơi hiển thị nút bấm sau khi hoàn tất -->
+        </div>
+    </article>
+</div>
+
+<script>
+    const progressBar = document.getElementById('progress-bar');
+    const timerEl = document.getElementById('timer');
+    const resultContainer = document.getElementById('result-container');
+    let timeLeft = 10;
+
+    // Giả lập tiến trình
+    const interval = setInterval(() => {
+        timeLeft--;
+        const progress = (10 - timeLeft) * 10;
+        progressBar.value = progress;
+        timerEl.textContent = timeLeft;
+
+        if (timeLeft <= 0) {
+            clearInterval(interval);
+            timerEl.parentElement.innerHTML = '<strong>Đã hoàn tất!</strong>';
+            progressBar.value = 100;
+            generateAndGetShortenedUrl();
+        }
+    }, 1000);
+
+    // Hàm gọi API để tạo key và lấy link rút gọn
+    async function generateAndGetShortenedUrl() {
+        resultContainer.innerHTML = `<p><progress></progress> Đang rút gọn liên kết, vui lòng chờ...</p>`;
+        try {
+            const response = await fetch('/key/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await response.json();
+            
+            if(data.success) {
+                resultContainer.innerHTML = `
+                    <p style="color: var(--pico-color-green-400);">Liên kết lấy key của bạn đã sẵn sàng!</p>
+                    <a href="${data.shortenedUrl}" role="button" class="contrast" target="_blank">LẤY KEY NGAY</a>
+                    <br><small>(Bạn sẽ được chuyển hướng đến trang vượt link để nhận key)</small>
+                `;
+            } else {
+                throw new Error(data.message || 'Lỗi không xác định từ Link4m');
+            }
+        } catch(error) {
+             resultContainer.innerHTML = `<p class="toast error"><strong>Lỗi:</strong> ${error.message}</p>`;
+        }
+    }
+</script>
+
+<%- include('partials/footer_vietnamese') %>
