@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "IP Tracker by Gemlogin Tool (TuanHaii)",
   "main": "server.js",
+  "type": "commonjs",
   "scripts": {
     "start": "node server.js"
   },
@@ -10,9 +11,11 @@
     "body-parser": "^1.20.2",
     "ejs": "^3.1.9",
     "express": "^4.18.2",
-    "express-session": "^1.17.3",
+    "express-session": "^1.18.0",
     "nanoid": "^3.3.4",
-    "passport": "^0.6.0",
+    "node-cron": "^3.0.3",
+    "node-fetch": "^3.3.2",
+    "passport": "^0.7.0",
     "passport-discord": "^0.1.4",
     "pg": "^8.11.3",
     "pg-hstore": "^2.3.4",
