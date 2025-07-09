@@ -1,28 +1,27 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Redirecting...</title>
+    <title>Đang chuyển hướng...</title>
     <!-- Tải thư viện FingerprintJS -->
     <script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"></script>
 </head>
 <body>
-    <p>Please wait while we redirect you...</p>
+    <p>Vui lòng chờ trong khi chúng tôi chuyển hướng bạn...</p>
 
     <script>
         async function runTracker() {
-            // Lấy target URL và short ID từ server EJS
             const targetUrl = '<%= targetUrl %>';
             const shortId = '<%= shortId %>';
 
             try {
-                // 1. Khởi tạo FingerprintJS
                 const fp = await FingerprintJS.load();
                 const result = await fp.get();
 
-                // 2. Lấy visitorId (chuỗi fingerprint)
+                // Lấy cả chuỗi hash và đối tượng chi tiết
                 const visitorId = result.visitorId;
+                const components = result.components;
 
-                // 3. Gửi fingerprint đến server một cách bí mật
+                // Gửi cả 2 về server
                 await fetch('/log', {
                     method: 'POST',
                     headers: {
@@ -30,19 +29,19 @@
                     },
                     body: JSON.stringify({
                         shortId: shortId,
-                        fingerprint: visitorId
+                        fingerprint: visitorId,
+                        components: components // GỬI THÊM ĐỐI TƯỢNG components
                     })
                 });
 
             } catch (error) {
-                console.error("Fingerprinting failed:", error);
+                console.error("Lỗi Fingerprinting:", error);
             } finally {
-                // 4. Luôn chuyển hướng người dùng đến đích, dù có lỗi hay không
+                // Luôn chuyển hướng người dùng đến đích
                 window.location.href = targetUrl;
             }
         }
         
-        // Chạy tracker
         runTracker();
     </script>
 </body>
