@@ -1,4 +1,4 @@
-<%- include('partials/header') %>
+<%- include('partials/header_vietnamese') %>
 
 <nav>
   <ul>
@@ -12,7 +12,7 @@
              <%= user.username %>
         </summary>
         <ul role="listbox">
-          <li><a href="/auth/logout">Logout</a></li>
+          <li><a href="/auth/logout">Đăng xuất</a></li>
         </ul>
       </details>
     </li>
@@ -20,45 +20,45 @@
 </nav>
 
 <hgroup>
-  <h2>Create a new tracking link</h2>
-  <p>Enter a destination URL. We'll generate a trackable link for you to share.</p>
+  <h2>Tạo liên kết theo dõi mới</h2>
+  <p>Nhập URL đích. Chúng tôi sẽ tạo một liên kết mới để bạn chia sẻ.</p>
 </hgroup>
 
-<form action="/create-link" method="POST" style="margin-bottom: 2rem;">
-  <input type="url" name="targetUrl" placeholder="https://your-destination-url.com" required>
-  <button type="submit">Create Link</button>
+<form action="/create-link" method="POST">
+  <input type="url" name="targetUrl" placeholder="https://url-dich-cua-ban.com" required>
+  <button type="submit">Tạo liên kết</button>
 </form>
 
 <hr>
 
-<h2>Your Links & Results</h2>
-<small><em>Links without any visits for 2 days will be automatically deleted.</em></small>
+<h2>Liên kết & Kết quả của bạn</h2>
+<small><em>Lưu ý: Các liên kết không có lượt truy cập nào trong 2 ngày sẽ tự động bị xóa.</em></small>
 
 <% if (links.length === 0) { %>
-    <p style="margin-top: 1rem;">You haven't created any links yet. Create one above!</p>
+    <p>Bạn chưa tạo liên kết nào. Hãy tạo một liên kết ở trên!</p>
 <% } else { %>
     <% links.forEach(link => { %>
-        <article style="margin-top: 2rem;">
+        <article>
             <header style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
-                    <strong>Tracking Link:</strong> 
-                    <code style="cursor: pointer;" onclick="navigator.clipboard.writeText('<%= baseUrl %>/t/<%= link.shortId %>'); alert('Copied!');"><%= baseUrl %>/t/<%= link.shortId %></code>
+                    <strong>Liên kết theo dõi:</strong> 
+                    <code style="cursor: pointer;" onclick="navigator.clipboard.writeText('<%= baseUrl %>/t/<%= link.shortId %>'); alert('Đã sao chép!');"><%= baseUrl %>/t/<%= link.shortId %></code>
                 </div>
-                <form action="/delete-link/<%= link.shortId %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this link and all its results? This action cannot be undone.');">
-                    <button type="submit" class="secondary outline" style="padding: 5px 10px; margin: 0;">Delete Link</button>
+                <form action="/delete-link/<%= link.shortId %>" method="POST" onsubmit="return confirm('Bạn có chắc muốn xóa liên kết này và tất cả kết quả của nó không?');">
+                    <button type="submit" class="secondary outline" style="padding: 5px 10px; margin: 0;">Xóa Liên kết</button>
                 </form>
             </header>
-            <p style="margin-bottom: 1rem;"><strong>Destination:</strong> <a href="<%= link.targetUrl %>" target="_blank"><%= link.targetUrl %></a></p>
+            <p><strong>URL Đích:</strong> <a href="<%= link.targetUrl %>" target="_blank"><%= link.targetUrl %></a></p>
             
             <% if (link.Visits && link.Visits.length > 0) { %>
                 <div class="overflow-auto">
                     <table>
                         <thead>
                             <tr>
-                                <th>Device ID</th>
-                                <th>IP Address</th>
-                                <th>Timestamp</th>
-                                <th style="text-align: right;">Actions</th>
+                                <th>ID Thiết bị</th>
+                                <th>Địa chỉ IP</th>
+                                <th>Thời gian</th>
+                                <th style="text-align: right;">Hành động</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -68,13 +68,12 @@
                                     <td><%= visit.ipAddress %></td>
                                     <td><%= new Date(visit.timestamp).toLocaleString('vi-VN') %></td>
                                     <td style="text-align: right;">
-                                        <a href="#" role="button" class="contrast" style="padding: 5px 10px; margin:0 5px 0 0;"
-                                           onclick="showDetails(event, '<%= visit.ipAddress %>', `<%= visit.fingerprint.replace(/`/g, '\\`') %>`, '<%= JSON.stringify(visit).replace(/'/g, "\\'") %>')">
-                                           Details
+                                        <!-- CẬP NHẬT: TRỎ ĐẾN TRANG CHI TIẾT -->
+                                        <a href="/details/<%= visit.id %>" role="button" class="contrast" style="padding: 5px 10px; margin:0 5px 0 0;">
+                                           Chi tiết
                                         </a>
-                                        <a href="#" role="button" class="secondary" style="padding: 5px 10px; margin:0;"
-                                           onclick="deleteVisit(event, '<%= visit.id %>')">
-                                           Delete
+                                        <a href="#" role="button" class="secondary" style="padding: 5px 10px; margin:0;" onclick="deleteVisit(event, '<%= visit.id %>')">
+                                           Xóa
                                         </a>
                                     </td>
                                 </tr>
@@ -83,122 +82,31 @@
                     </table>
                 </div>
             <% } else { %>
-                <p><em>No visits recorded for this link yet.</em></p>
+                <p><em>Chưa có lượt truy cập nào cho liên kết này.</em></p>
             <% } %>
         </article>
     <% }) %>
 <% } %>
 
-<!-- MODAL XEM CHI TIẾT (Ẩn mặc định) -->
-<dialog id="details-modal">
-  <article>
-    <header>
-      <a href="#close" aria-label="Close" class="close" onclick="closeModal(event)"></a>
-      <strong>Visit Details</strong>
-    </header>
-    <div id="modal-content"><p>Loading...</p></div>
-    <footer style="display: flex; justify-content: flex-end; gap: 1rem;">
-        <button id="download-fp-btn" class="secondary">Download Fingerprint</button>
-        <a id="view-on-map-btn" href="#" target="_blank" role="button" class="contrast" style="display: none;">View on Map</a>
-    </footer>
-  </article>
-</dialog>
+<%- include('partials/footer_vietnamese') %>
 
-<%- include('partials/footer') %>
-
-<!-- JAVASCRIPT LOGIC -->
 <script>
-    const modal = document.getElementById('details-modal');
-    const modalContent = document.getElementById('modal-content');
-    const downloadBtn = document.getElementById('download-fp-btn');
-    const mapBtn = document.getElementById('view-on-map-btn');
-    
-    // Đóng modal khi nhấn phím Escape
-    window.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') {
-            closeModal();
-        }
-    });
-
-    function closeModal(event) {
-        if(event) event.preventDefault();
-        modal.close();
-    }
-
-    async function showDetails(event, ip, fingerprint) {
-        event.preventDefault();
-        modal.showModal();
-        modalContent.innerHTML = '<p><progress></progress> Loading IP details...</p>';
-        
-        downloadBtn.onclick = () => downloadFingerprint(fingerprint);
-        mapBtn.style.display = 'none';
-
-        try {
-            const response = await fetch(`/ip-details/${ip}`);
-            if (!response.ok) throw new Error('Failed to fetch IP details');
-            const data = await response.json();
-            
-            let ipDetailsHtml = `<h4>IP Details: <code>${ip}</code></h4>`;
-            if (data.status === 'success') {
-                ipDetailsHtml += `
-                    <ul>
-                        <li><strong>Country:</strong> ${data.country || 'N/A'}</li>
-                        <li><strong>Region:</strong> ${data.regionName || 'N/A'}</li>
-                        <li><strong>City:</strong> ${data.city || 'N/A'}</li>
-                        <li><strong>ISP:</strong> ${data.isp || 'N/A'}</li>
-                        <li><strong>Organization:</strong> ${data.org || 'N/A'}</li>
-                    </ul>`;
-                mapBtn.href = `https://www.google.com/maps?q=${data.lat},${data.lon}`;
-                mapBtn.style.display = 'inline-block';
-            } else {
-                ipDetailsHtml += `<p>Could not retrieve details: ${data.message || 'Unknown error'}</p>`;
-            }
-            
-            const fingerprintHtml = `
-                <h4>Browser Fingerprint</h4>
-                <pre><code style="word-break: break-all; white-space: pre-wrap;">${fingerprint}</code></pre>
-            `;
-            
-            modalContent.innerHTML = ipDetailsHtml + fingerprintHtml;
-
-        } catch (error) {
-            modalContent.innerHTML = `<p style="color: var(--pico-color-red-500);">Error loading details: ${error.message}. Please try again later.</p>`;
-        }
-    }
-
-    function downloadFingerprint(fingerprintText) {
-        const blob = new Blob([fingerprintText], { type: 'text/plain;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `fingerprint_${Date.now()}.txt`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }
-
+    // Hàm deleteVisit giữ nguyên, không cần thay đổi
     async function deleteVisit(event, visitId) {
         event.preventDefault();
-        if (!confirm('Are you sure you want to delete this result?')) {
+        if (!confirm('Bạn có chắc muốn xóa kết quả này không?')) {
             return;
         }
-
         try {
-            const response = await fetch(`/delete-visit/${visitId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-
+            const response = await fetch(`/delete-visit/${visitId}`, { method: 'POST' });
             const result = await response.json();
             if (result.success) {
-                const row = document.getElementById(`visit-row-${visitId}`);
-                if (row) row.remove();
+                document.getElementById(`visit-row-${visitId}`)?.remove();
             } else {
-                alert(`Error: ${result.message}`);
+                alert(`Lỗi: ${result.message}`);
             }
         } catch (error) {
-            alert('An error occurred while trying to delete the visit.');
+            alert('Đã xảy ra lỗi khi cố gắng xóa kết quả.');
         }
     }
 </script>
