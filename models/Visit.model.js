@@ -13,12 +13,17 @@ const Visit = sequelize.define('Visit', {
         allowNull: false,
     },
     fingerprint: {
-        type: DataTypes.STRING, // Đây là chuỗi fingerprint đầy đủ
+        type: DataTypes.STRING, // Chuỗi hash định danh thiết bị
         allowNull: false,
     },
     fingerprintId: {
-        type: DataTypes.STRING, // Đây là ID duy nhất cho mỗi thiết bị
+        type: DataTypes.STRING, // ID duy nhất cho mỗi thiết bị
         allowNull: false,
+    },
+    // ---- TRƯỜNG MỚI QUAN TRỌNG ----
+    fingerprintComponents: {
+        type: DataTypes.JSONB, // Kiểu JSONB của PostgreSQL để lưu đối tượng chi tiết
+        allowNull: true,
     },
     userAgent: {
         type: DataTypes.TEXT,
