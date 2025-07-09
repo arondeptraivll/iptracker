@@ -5,6 +5,7 @@
     <li><strong>IP Tracker</strong> by Gemlogin Tool (TuanHaii)</li>
   </ul>
   <ul>
+    <li><a href="/key" role="button" class="contrast">Quản lý Key</a></li>
     <li>
       <details role="list" dir="rtl">
         <summary aria-haspopup="listbox" role="link">
@@ -19,15 +20,26 @@
   </ul>
 </nav>
 
-<hgroup>
-  <h2>Tạo liên kết theo dõi mới</h2>
-  <p>Nhập URL đích. Chúng tôi sẽ tạo một liên kết mới để bạn chia sẻ.</p>
-</hgroup>
+<!-- THÔNG BÁO YÊU CẦU KEY -->
+<% if (!hasActiveKey) { %>
+    <div class="toast error" style="margin-top:1rem;">
+        Key của bạn chưa được kích hoạt hoặc đã hết hạn. Vui lòng vào trang <b>Quản lý Key</b> để lấy và kích hoạt lại. Các tính năng chính đã bị tạm khóa.
+    </div>
+<% } %>
 
-<form action="/create-link" method="POST">
-  <input type="url" name="targetUrl" placeholder="https://url-dich-cua-ban.com" required>
-  <button type="submit">Tạo liên kết</button>
-</form>
+
+<!-- Vô hiệu hóa form tạo link khi không có key -->
+<fieldset <%= !hasActiveKey ? 'disabled' : '' %> >
+  <hgroup>
+    <h2>Tạo liên kết theo dõi mới</h2>
+    <p>Nhập URL đích. Chúng tôi sẽ tạo một liên kết mới để bạn chia sẻ.</p>
+  </hgroup>
+  
+  <form action="/create-link" method="POST">
+    <input type="url" name="targetUrl" placeholder="https://url-dich-cua-ban.com" required>
+    <button type="submit">Tạo liên kết</button>
+  </form>
+</fieldset>
 
 <hr>
 
@@ -42,7 +54,7 @@
             <header style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
                     <strong>Liên kết theo dõi:</strong> 
-                    <code style="cursor: pointer;" onclick="navigator.clipboard.writeText('<%= baseUrl %>/t/<%= link.shortId %>'); alert('Đã sao chép!');"><%= baseUrl %>/t/<%= link.shortId %></code>
+                    <code style="cursor: pointer;" onclick="navigator.clipboard.writeText('<%= baseUrl %>/t/<%= link.shortId %>'); showToast('Đã sao chép liên kết!');"><%= baseUrl %>/t/<%= link.shortId %></code>
                 </div>
                 <form action="/delete-link/<%= link.shortId %>" method="POST" onsubmit="return confirm('Bạn có chắc muốn xóa liên kết này và tất cả kết quả của nó không?');">
                     <button type="submit" class="secondary outline" style="padding: 5px 10px; margin: 0;">Xóa Liên kết</button>
@@ -68,10 +80,15 @@
                                     <td><%= visit.ipAddress %></td>
                                     <td><%= new Date(visit.timestamp).toLocaleString('vi-VN') %></td>
                                     <td style="text-align: right;">
-                                        <!-- CẬP NHẬT: TRỎ ĐẾN TRANG CHI TIẾT -->
-                                        <a href="/details/<%= visit.id %>" role="button" class="contrast" style="padding: 5px 10px; margin:0 5px 0 0;">
+                                        <!-- Vô hiệu hóa nút Chi tiết khi không có key -->
+                                        <a href="<%= hasActiveKey ? '/details/' + visit.id : '#' %>" 
+                                           role="button" class="contrast" 
+                                           <%= !hasActiveKey ? 'aria-disabled="true"' : '' %>
+                                           onclick="<%= !hasActiveKey ? "showToast('Vui lòng kích hoạt Key để xem chi tiết.', 'error'); return false;" : "" %>"
+                                           style="padding: 5px 10px; margin:0 5px 0 0;">
                                            Chi tiết
                                         </a>
+                                        <!-- Nút xóa không bị ảnh hưởng -->
                                         <a href="#" role="button" class="secondary" style="padding: 5px 10px; margin:0;" onclick="deleteVisit(event, '<%= visit.id %>')">
                                            Xóa
                                         </a>
@@ -88,10 +105,28 @@
     <% }) %>
 <% } %>
 
+<!-- Vùng hiển thị Toast thông báo -->
+<div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
+
 <%- include('partials/footer_vietnamese') %>
 
 <script>
-    // Hàm deleteVisit giữ nguyên, không cần thay đổi
+    function showToast(message, type = 'success') {
+        const toastContainer = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = message;
+        toast.style.marginBottom = "10px";
+
+        toastContainer.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.style.transition = 'opacity 0.5s ease';
+            setTimeout(() => toast.remove(), 500);
+        }, 3000);
+    }
+
     async function deleteVisit(event, visitId) {
         event.preventDefault();
         if (!confirm('Bạn có chắc muốn xóa kết quả này không?')) {
@@ -102,11 +137,12 @@
             const result = await response.json();
             if (result.success) {
                 document.getElementById(`visit-row-${visitId}`)?.remove();
+                showToast('Đã xóa kết quả thành công.', 'success');
             } else {
-                alert(`Lỗi: ${result.message}`);
+                showToast(`Lỗi: ${result.message}`, 'error');
             }
         } catch (error) {
-            alert('Đã xảy ra lỗi khi cố gắng xóa kết quả.');
+            showToast('Đã xảy ra lỗi khi cố gắng xóa kết quả.', 'error');
         }
     }
 </script>
