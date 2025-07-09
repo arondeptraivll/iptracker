@@ -1,0 +1,78 @@
+<%- include('partials/header') %>
+
+<nav>
+  <ul>
+    <li><strong>IP Tracker</strong> by Gemlogin Tool (TuanHaii)</li>
+  </ul>
+  <ul>
+    <li>
+      <details role="list" dir="rtl">
+        <summary aria-haspopup="listbox" role="link">
+            <img src="<%= user.avatar %>" alt="Avatar" style="width: 32px; height: 32px; border-radius: 50%; vertical-align: middle;">
+             <%= user.username %>
+        </summary>
+        <ul role="listbox">
+          <li><a href="/auth/logout">Logout</a></li>
+        </ul>
+      </details>
+    </li>
+  </ul>
+</nav>
+
+<hgroup>
+  <h2>Create a new tracking link</h2>
+  <p>Enter the destination URL. We will generate a new link for you to share.</p>
+</hgroup>
+
+<form action="/create-link" method="POST">
+  <input type="url" name="targetUrl" placeholder="https://example.com" required>
+  <button type="submit">Create Link</button>
+</form>
+
+<hr>
+
+<h2>Your Links & Results</h2>
+
+<% if (links.length === 0) { %>
+    <p>You haven't created any links yet. Create one above!</p>
+<% } else { %>
+    <% links.forEach(link => { %>
+        <article>
+            <header>
+                <strong>Tracking Link:</strong> 
+                <code><%= baseUrl %>/t/<%= link.shortId %></code>
+            </header>
+            <p><strong>Destination:</strong> <a href="<%= link.targetUrl %>" target="_blank"><%= link.targetUrl %></a></p>
+            
+            <% if (link.Visits && link.Visits.length > 0) { %>
+                <h4>Visits (<%= link.Visits.length %>)</h4>
+                <div class="overflow-auto">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Device ID</th>
+                                <th>IP Address</th>
+                                <th>Timestamp</th>
+                                <th>User Agent</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% link.Visits.forEach(visit => { %>
+                                <tr>
+                                    <td><code><%= visit.fingerprintId %></code></td>
+                                    <td><%= visit.ipAddress %></td>
+                                    <td><%= new Date(visit.timestamp).toLocaleString() %></td>
+                                    <td><small><%= visit.userAgent %></small></td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            <% } else { %>
+                <p><em>No visits recorded for this link yet.</em></p>
+            <% } %>
+        </article>
+    <% }) %>
+<% } %>
+
+<%- include('partials/footer') %>
