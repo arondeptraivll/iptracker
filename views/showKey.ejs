@@ -1,0 +1,41 @@
+<%- include('partials/header_vietnamese') %>
+
+<div class="container" style="text-align: center; margin-top: 15vh;">
+    <article>
+        <header>
+            <h2>🎉 Key của bạn đây! 🎉</h2>
+        </header>
+        <p>Hãy sao chép Key bên dưới và dán vào trang <strong>Quản lý Key</strong> để kích hoạt.</p>
+        
+        <div style="background: var(--pico-form-element-background-color); padding: 1rem; border-radius: var(--pico-border-radius); margin-bottom: 1rem; border: 1px dashed var(--pico-muted-border-color);">
+            <code id="key-string" style="font-size: 1.1rem; word-break: break-all;"><%= userKey.keyString %></code>
+        </div>
+        
+        <button id="copy-btn" onclick="copyKey()">Sao chép Key</button>
+        
+        <p style="margin-top:1rem;"><small>Key sẽ hết hạn lúc: <%= new Date(userKey.expiresAt).toLocaleString('vi-VN') %></small></p>
+        
+        <footer>
+            <a href="/key">Quay lại trang quản lý Key</a>
+        </footer>
+    </article>
+</div>
+
+<script>
+    function copyKey(){
+        const keyText = document.getElementById('key-string').innerText;
+        const copyBtn = document.getElementById('copy-btn');
+        navigator.clipboard.writeText(keyText).then(() => {
+            copyBtn.textContent = '✅ Đã sao chép!';
+            copyBtn.classList.add('secondary');
+            setTimeout(() => {
+                copyBtn.textContent = 'Sao chép Key';
+                copyBtn.classList.remove('secondary');
+            }, 2000);
+        }, () => {
+            alert('Lỗi! Không thể tự động sao chép. Vui lòng sao chép thủ công.');
+        });
+    }
+</script>
+
+<%- include('partials/footer_vietnamese') %>
