@@ -1,0 +1,90 @@
+<%- include('partials/header_vietnamese') %>
+
+<nav>
+    <ul>
+      <li><strong>IP Tracker</strong> by Gemlogin Tool (TuanHaii)</li>
+    </ul>
+    <ul>
+        <li><a href="/dashboard" role="button" class="secondary">Về Bảng điều khiển</a></li>
+    </ul>
+</nav>
+
+<div class="container">
+    <hgroup>
+        <h1>Quản lý Key</h1>
+        <p>Kích hoạt Key của bạn để sử dụng đầy đủ các tính năng của công cụ.</p>
+    </hgroup>
+    
+    <!-- HỆ THỐNG THÔNG BÁO -->
+    <div id="toast-container-local">
+        <% if(keyStatus) { %>
+            <% if(keyStatus === 'activated') { %>
+                <div class="toast success">Đã kích hoạt key thành công! Chúc bạn trải nghiệm vui vẻ.</div>
+            <% } else if(keyStatus === 'deactivated') { %>
+                <div class="toast">Đã hủy kích hoạt key.</div>
+            <% } else if(keyStatus.startsWith('error')) { %>
+                <div class="toast error">
+                    <% if(keyStatus === 'error_required') { %> <strong>Lỗi:</strong> Yêu cầu Key để thực hiện hành động này. Vui lòng kích hoạt key.
+                    <% } else if(keyStatus === 'error_notfound') { %> <strong>Lỗi:</strong> Key không hợp lệ hoặc không tồn tại.
+                    <% } else if(keyStatus === 'error_expired') { %> <strong>Lỗi:</strong> Key này đã hết hạn. Vui lòng lấy key mới.
+                    <% } else if(keyStatus === 'error_missing') { %> <strong>Lỗi:</strong> Bạn chưa nhập key.
+                    <% } else { %> <strong>Lỗi:</strong> Có lỗi xảy ra phía máy chủ. Vui lòng thử lại.
+                    <% } %>
+                </div>
+            <% } %>
+        <% } %>
+    </div>
+    
+    <% if (userKey && new Date() < new Date(userKey.expiresAt)) { %>
+        <!-- GIAO DIỆN KHI ĐÃ KÍCH HOẠT KEY -->
+        <article>
+            <header><strong>Key đang được kích hoạt</strong></header>
+            <p><strong>Key của bạn:</strong> <code style="word-break: break-all;"><%= userKey.keyString %></code></p>
+            <p><strong>Thời gian còn lại:</strong> <span id="countdown" style="font-weight: bold; color: var(--pico-color-green-400);"></span></p>
+            <footer>
+                <form action="/key/deactivate" method="POST" onsubmit="return confirm('Bạn có chắc muốn xóa key này không? Bạn sẽ phải lấy lại key mới.')">
+                    <button class="secondary" type="submit">Xóa Key</button>
+                </form>
+            </footer>
+        </article>
+
+        <script>
+            const countdownEl = document.getElementById('countdown');
+            const expiresAt = new Date('<%= userKey.expiresAt.toISOString() %>').getTime();
+
+            const interval = setInterval(() => {
+                const now = new Date().getTime();
+                const distance = expiresAt - now;
+
+                if (distance < 0) {
+                    clearInterval(interval);
+                    countdownEl.innerHTML = "ĐÃ HẾT HẠN";
+                    location.reload();
+                    return;
+                }
+
+                const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+
+                countdownEl.innerHTML = `${hours} giờ ${minutes} phút ${seconds} giây`;
+            }, 1000);
+        </script>
+
+    <% } else { %>
+        <!-- GIAO DIỆN KHI CHƯA CÓ KEY -->
+        <div class="toast error" role="alert">
+            <strong>Chú ý:</strong> Vui lòng nhập Key để sử dụng các tính năng của công cụ.
+        </div>
+        <form action="/key/activate" method="POST">
+            <input type="text" name="keyString" placeholder="Nhập Key của bạn vào đây" required autocomplete="off">
+            <button type="submit">Xác nhận</button>
+        </form>
+        <hr>
+        <div style="text-align: center;">
+            <p>Chưa có Key?</p>
+            <a href="/key/get/token/<%= user.discordId %>" role="button" class="contrast">Lấy Key ngay (Miễn phí)</a>
+        </div>
+    <% } %>
+</div>
+<%- include('partials/footer_vietnamese') %>
