@@ -11,10 +11,12 @@ const { Op } = require('sequelize');
 const sequelize = require('./config/database');
 const User = require('./models/User.model');
 const Link = require('./models/Link.model');
+const Key = require('./models/Key.model'); // Thêm model Key
 
 // Import các route
 const authRoutes = require('./routes/auth');
 const appRoutes = require('./routes/app');
+const keyRoutes = require('./routes/key'); // Thêm route Key
 
 // Lấy các biến môi trường
 const PORT = process.env.PORT || 3000;
@@ -25,7 +27,7 @@ const BASE_URL = process.env.RENDER_EXTERNAL_URL; // Render cung cấp biến n�
 
 // Kiểm tra các biến môi trường quan trọng
 if (!DISCORD_CLIENT_ID || !DISCORD_CLIENT_SECRET || !SESSION_SECRET || !BASE_URL) {
-    console.error("Missing essential environment variables! (DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, SESSION_SECRET, RENDER_EXTERNAL_URL)");
+    console.error("LỖI: Thiếu các biến môi trường cần thiết! (DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, SESSION_SECRET, RENDER_EXTERNAL_URL)");
     process.exit(1);
 }
 
@@ -43,7 +45,7 @@ app.use(session({
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: 'auto', // Tự động bật secure cookie khi chạy trên HTTPS (Render)
+      secure: 'auto', // Tự động bật secure cookie khi chạy trên HTTPS
       httpOnly: true,
     }
 }));
@@ -83,7 +85,6 @@ passport.use(new DiscordStrategy({
             }
         });
 
-        // Nếu user đã tồn tại, cập nhật lại thông tin (tên/avatar) nếu có thay đổi
         if (!created && (user.username !== username || user.avatar !== avatarUrl)) {
           user.username = username;
           user.avatar = avatarUrl;
@@ -92,7 +93,7 @@ passport.use(new DiscordStrategy({
 
         return done(null, user);
     } catch (err) {
-        console.error("Error in Discord strategy:", err);
+        console.error("Lỗi trong Discord strategy:", err);
         return done(err, null);
     }
 }));
@@ -100,55 +101,50 @@ passport.use(new DiscordStrategy({
 
 // --- Sử dụng Routes ---
 app.use('/auth', authRoutes);
+app.use('/key', keyRoutes);
 app.use('/', appRoutes);
 
-// --- Tác vụ tự động: Dọn dẹp link cũ ---
-// Lịch trình: Chạy vào lúc 2 giờ sáng mỗi ngày theo múi giờ Việt Nam
+
+// --- Tác vụ tự động (CRON JOB) ---
 cron.schedule('0 2 * * *', async () => {
-    console.log('[CRON] Starting daily cleanup task for old links...');
+    const now = new Date();
+    console.log(`[CRON] Bắt đầu tác vụ dọn dẹp lúc ${now.toLocaleString('vi-VN')}...`);
     try {
-        // Xác định thời gian 2 ngày trước
+        // 1. Dọn dẹp link cũ (không có lượt truy cập trong 2 ngày)
         const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+        const deletedLinksCount = await Link.destroy({ where: { lastVisitedAt: { [Op.lt]: twoDaysAgo } } });
+        if(deletedLinksCount > 0) console.log(`[CRON] Đã xóa ${deletedLinksCount} liên kết cũ.`);
+
+        // 2. Dọn dẹp key đã hết hạn
+        const deletedKeysCount = await Key.destroy({ where: { expiresAt: { [Op.lt]: now } } });
+        if(deletedKeysCount > 0) console.log(`[CRON] Đã xóa ${deletedKeysCount} key đã hết hạn.`);
         
-        // Tìm và xóa tất cả các link có lastVisitedAt nhỏ hơn 2 ngày trước
-        const result = await Link.destroy({
-            where: {
-                lastVisitedAt: {
-                    [Op.lt]: twoDaysAgo // Op.lt = less than (nhỏ hơn)
-                }
-            }
-        });
-        
-        if (result > 0) {
-            console.log(`[CRON] Successfully deleted ${result} old link(s).`);
-        } else {
-            console.log('[CRON] No old links found to delete.');
-        }
+        console.log('[CRON] Tác vụ dọn dẹp hoàn tất.');
+
     } catch (error) {
-        console.error('[CRON] Error during scheduled link cleanup:', error);
+        console.error('[CRON] Lỗi trong quá trình dọn dẹp:', error);
     }
 }, {
     scheduled: true,
     timezone: "Asia/Ho_Chi_Minh"
 });
 
+
 // --- Khởi động Server ---
 async function startServer() {
     try {
         await sequelize.authenticate();
-        console.log('✅ Database connection has been established successfully.');
+        console.log('✅ Kết nối CSDL thành công.');
         
-        // Đồng bộ hóa model với database. Render sẽ chạy lệnh này một lần khi build.
-        // Không dùng { force: true } trong môi trường production!
-        await sequelize.sync({ alter: true }); // Dùng alter để cập nhật bảng một cách an toàn
-        console.log('✅ All models were synchronized successfully.');
+        await sequelize.sync({ alter: true }); // Dùng alter để cập nhật CSDL một cách an toàn
+        console.log('✅ Đồng bộ hóa Models thành công.');
 
         app.listen(PORT, () => {
-            console.log(`🚀 Server is running on port ${PORT}`);
-            console.log(`🌐 Public URL: ${BASE_URL}`);
+            console.log(`🚀 Máy chủ đang chạy tại cổng ${PORT}`);
+            console.log(`🌐 URL công khai: ${BASE_URL}`);
         });
     } catch (error) {
-        console.error('❌ Unable to connect to the database or start server:', error);
+        console.error('❌ Lỗi không thể kết nối CSDL hoặc khởi động máy chủ:', error);
         process.exit(1);
     }
 }
