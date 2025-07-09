@@ -1,10 +1,12 @@
 const router = require('express').Router();
 const { nanoid } = require('nanoid');
+const sequelize = require('../config/database'); // Import sequelize cho transaction
 const Link = require('../models/Link.model');
 const Visit = require('../models/Visit.model');
 const { Op } = require('sequelize');
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
-// Middleware kiểm tra đã đăng nhập chưa
+// Middleware kiểm tra đăng nhập
 function isLoggedIn(req, res, next) {
     if (req.isAuthenticated()) {
         return next();
@@ -12,26 +14,23 @@ function isLoggedIn(req, res, next) {
     res.redirect('/');
 }
 
-// Trang chủ -> chuyển đến dashboard nếu đã đăng nhập
+// --- CÁC ROUTE HIỆN CÓ ---
+
 router.get('/', (req, res) => {
-    if (req.isAuthenticated()) {
-        return res.redirect('/dashboard');
-    }
+    if (req.isAuthenticated()) return res.redirect('/dashboard');
     res.render('index', { title: 'IP Tracker | Login' });
 });
 
-// Trang quản lý
 router.get('/dashboard', isLoggedIn, async (req, res) => {
     try {
         const userLinks = await Link.findAll({
             where: { userDiscordId: req.user.discordId },
             include: [{
                 model: Visit,
-                order: [['timestamp', 'DESC']], // Sắp xếp lượt truy cập mới nhất lên đầu
+                order: [['timestamp', 'DESC']],
             }],
             order: [['createdAt', 'DESC']],
         });
-
         res.render('dashboard', {
             title: 'IP Tracker | Dashboard',
             user: req.user,
@@ -44,16 +43,12 @@ router.get('/dashboard', isLoggedIn, async (req, res) => {
     }
 });
 
-// Tạo link mới
 router.post('/create-link', isLoggedIn, async (req, res) => {
     const { targetUrl } = req.body;
-    if (!targetUrl) {
-        return res.status(400).send('Target URL is required');
-    }
-
+    if (!targetUrl) return res.status(400).send('Target URL is required');
     try {
-        const newLink = await Link.create({
-            shortId: nanoid(7), // Tạo ID ngắn 7 ký tự
+        await Link.create({
+            shortId: nanoid(7),
             targetUrl,
             userDiscordId: req.user.discordId
         });
@@ -64,7 +59,73 @@ router.post('/create-link', isLoggedIn, async (req, res) => {
     }
 });
 
-// Link theo dõi -> phục vụ trang track.ejs
+// --- ROUTE CẬP NHẬT & ROUTE MỚI ---
+
+// ROUTE MỚI: Xóa một link
+router.post('/delete-link/:shortId', isLoggedIn, async (req, res) => {
+    try {
+        const { shortId } = req.params;
+        const link = await Link.findOne({
+            where: {
+                shortId: shortId,
+                userDiscordId: req.user.discordId // QUAN TRỌNG: Chỉ chủ sở hữu mới được xóa
+            }
+        });
+
+        if (link) {
+            await link.destroy(); // Sequelize sẽ tự xóa các visit liên quan nhờ 'onDelete: CASCADE'
+            res.redirect('/dashboard');
+        } else {
+            res.status(404).send("Link not found or you don't have permission.");
+        }
+    } catch (error) {
+        console.error("Error deleting link:", error);
+        res.status(500).send("Server Error");
+    }
+});
+
+// ROUTE MỚI: Xóa một kết quả (Visit)
+router.post('/delete-visit/:visitId', isLoggedIn, async (req, res) => {
+    try {
+        const { visitId } = req.params;
+        const visit = await Visit.findOne({
+            where: { id: visitId },
+            include: {
+                model: Link,
+                where: { userDiscordId: req.user.discordId },
+                required: true
+            }
+        });
+        
+        if (visit) {
+            await visit.destroy();
+            res.json({ success: true, message: "Visit deleted successfully." });
+        } else {
+            res.status(404).json({ success: false, message: "Visit not found or permission denied." });
+        }
+    } catch (error) {
+        console.error("Error deleting visit:", error);
+        res.status(500).json({ success: false, message: "Server Error" });
+    }
+});
+
+
+// ROUTE MỚI: Lấy thông tin chi tiết IP
+router.get('/ip-details/:ip', isLoggedIn, async (req, res) => {
+    const ip = req.params.ip;
+    if (!ip) {
+        return res.status(400).json({ error: 'IP address is required' });
+    }
+    try {
+        const response = await fetch(`http://ip-api.com/json/${ip}?fields=status,message,country,countryCode,regionName,city,zip,lat,lon,timezone,isp,org`);
+        const data = await response.json();
+        res.json(data);
+    } catch (error) {
+        console.error("IP API fetch error:", error);
+        res.status(500).json({ status: 'error', message: 'Failed to fetch IP details' });
+    }
+});
+
 router.get('/t/:shortId', async (req, res) => {
     try {
         const link = await Link.findOne({ where: { shortId: req.params.shortId } });
@@ -78,14 +139,13 @@ router.get('/t/:shortId', async (req, res) => {
     }
 });
 
-// API endpoint để nhận dữ liệu từ client
+// API endpoint để nhận dữ liệu từ client (CẬP NHẬT)
 router.post('/log', async (req, res) => {
     const { shortId, fingerprint } = req.body;
     if (!shortId || !fingerprint) {
         return res.status(400).json({ status: 'error', message: 'Missing data' });
     }
     
-    // Lấy IP chính xác nhất, đặc biệt khi chạy sau proxy như Render
     const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
     try {
@@ -94,33 +154,37 @@ router.post('/log', async (req, res) => {
             return res.status(404).json({ status: 'error', message: 'Link not found' });
         }
         
-        // --- Logic xử lý Fingerprint ID ---
         let finalFingerprintId;
         const existingVisit = await Visit.findOne({
             where: { fingerprint: fingerprint },
             include: [{
                 model: Link,
-                where: { userDiscordId: link.userDiscordId } // Chỉ tìm trong các link của cùng 1 user
+                where: { userDiscordId: link.userDiscordId }
             }]
         });
 
         if (existingVisit) {
-            finalFingerprintId = existingVisit.fingerprintId; // Dùng lại ID đã có
+            finalFingerprintId = existingVisit.fingerprintId;
         } else {
-            finalFingerprintId = nanoid(10); // Tạo ID mới cho thiết bị mới
+            finalFingerprintId = nanoid(10);
         }
 
-        // Lưu vào database
-        await Visit.create({
-            ipAddress: ipAddress.split(',')[0].trim(), // Lấy IP đầu tiên nếu có nhiều
-            fingerprint: fingerprint,
-            fingerprintId: finalFingerprintId,
-            userAgent: req.headers['user-agent'],
-            linkShortId: shortId
+        // Dùng transaction để đảm bảo cả hai hành động (tạo visit và cập nhật link) đều thành công
+        await sequelize.transaction(async (t) => {
+            await Visit.create({
+                ipAddress: ipAddress.split(',')[0].trim(),
+                fingerprint: fingerprint,
+                fingerprintId: finalFingerprintId,
+                userAgent: req.headers['user-agent'],
+                linkShortId: shortId
+            }, { transaction: t });
+    
+            // CẬP NHẬT: Cập nhật thời gian truy cập cuối cùng cho link
+            link.lastVisitedAt = new Date();
+            await link.save({ transaction: t });
         });
         
         res.json({ status: 'success' });
-
     } catch (error) {
         console.error("Logging error:", error);
         res.status(500).json({ status: 'error', message: 'Server error' });
