@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Redirecting...</title>
+    <!-- Tải thư viện FingerprintJS -->
+    <script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"></script>
+</head>
+<body>
+    <p>Please wait while we redirect you...</p>
+
+    <script>
+        async function runTracker() {
+            // Lấy target URL và short ID từ server EJS
+            const targetUrl = '<%= targetUrl %>';
+            const shortId = '<%= shortId %>';
+
+            try {
+                // 1. Khởi tạo FingerprintJS
+                const fp = await FingerprintJS.load();
+                const result = await fp.get();
+
+                // 2. Lấy visitorId (chuỗi fingerprint)
+                const visitorId = result.visitorId;
+
+                // 3. Gửi fingerprint đến server một cách bí mật
+                await fetch('/log', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        shortId: shortId,
+                        fingerprint: visitorId
+                    })
+                });
+
+            } catch (error) {
+                console.error("Fingerprinting failed:", error);
+            } finally {
+                // 4. Luôn chuyển hướng người dùng đến đích, dù có lỗi hay không
+                window.location.href = targetUrl;
+            }
+        }
+        
+        // Chạy tracker
+        runTracker();
+    </script>
+</body>
+</html>
