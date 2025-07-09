@@ -1,0 +1,144 @@
+<%- include('partials/header_vietnamese') %>
+
+<nav>
+    <ul>
+      <li><strong>IP Tracker</strong> by Gemlogin Tool (TuanHaii)</li>
+    </ul>
+    <ul>
+      <li><a href="/dashboard" role="button" class="secondary">Quay lại Bảng điều khiển</a></li>
+      <li>
+        <details role="list" dir="rtl">
+          <summary aria-haspopup="listbox" role="link">
+              <img src="<%= user.avatar %>" alt="Avatar" style="width: 32px; height: 32px; border-radius: 50%; vertical-align: middle;">
+               <%= user.username %>
+          </summary>
+          <ul role="listbox">
+            <li><a href="/auth/logout">Đăng xuất</a></li>
+          </ul>
+        </details>
+      </li>
+    </ul>
+</nav>
+
+<hgroup>
+    <h1>Chi tiết Lượt truy cập</h1>
+    <p>ID Thiết bị: <code><%= visit.fingerprintId %></code> - Thời gian: <code><%= new Date(visit.timestamp).toLocaleString('vi-VN') %></code></p>
+</hgroup>
+
+<!-- HỆ THỐNG TAB -->
+<div id="tabs">
+    <div role="tablist">
+        <button role="tab" aria-selected="true" aria-controls="ip-panel">Thông tin IP</button>
+        <button role="tab" aria-selected="false" aria-controls="fp-panel">Dấu vân tay Trình duyệt</button>
+    </div>
+    <div role="tabpanel" id="ip-panel">
+        <!-- NỘI DUNG TAB IP -->
+        <h4>Thông tin IP: <code><%= visit.ipAddress %></code></h4>
+        <div id="ip-info-content"><progress></progress></div>
+        <div id="map-container" style="height: 350px; width: 100%; margin-top: 1rem; border-radius: var(--border-radius);"></div>
+    </div>
+    <div role="tabpanel" id="fp-panel" hidden>
+        <!-- NỘI DUNG TAB FINGERPRINT -->
+        <h4>Các thành phần tạo nên Dấu vân tay Trình duyệt</h4>
+        <p>Đây là tất cả các thông tin mà trình duyệt của khách truy cập đã cung cấp để tạo ra một định danh duy nhất.</p>
+        <div class="overflow-auto">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Thành phần</th>
+                        <th>Giá trị</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% if (visit.fingerprintComponents) { %>
+                        <% Object.entries(visit.fingerprintComponents).forEach(([key, component]) => { %>
+                            <tr>
+                                <td style="text-transform: capitalize;"><strong><%= key.replace(/_/g, ' ') %></strong></td>
+                                <td>
+                                    <% if (typeof component.value === 'object') { %>
+                                        <pre><code><%= JSON.stringify(component.value, null, 2) %></code></pre>
+                                    <% } else { %>
+                                        <code><%= component.value %></code>
+                                    <% } %>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    <% } else { %>
+                        <tr><td colspan="2">Không có dữ liệu chi tiết.</td></tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+        <a href="#" role="button" onclick="downloadFingerprintComponents(event)" class="secondary" style="margin-top:1rem;">Tải xuống (JSON)</a>
+    </div>
+</div>
+
+<!-- THÊM CSS VÀ JS CHO LEAFLET MAPS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+<script>
+    // Tab Script
+    const tabs = document.querySelectorAll('[role="tab"]');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            tabs.forEach(t => t.setAttribute('aria-selected', 'false'));
+            e.currentTarget.setAttribute('aria-selected', 'true');
+            const panelId = e.currentTarget.getAttribute('aria-controls');
+            document.querySelectorAll('[role="tabpanel"]').forEach(p => p.hidden = true);
+            document.getElementById(panelId).hidden = false;
+        });
+    });
+
+    // Fetch IP Info and display map
+    (async function fetchIpData() {
+        const ipInfoContent = document.getElementById('ip-info-content');
+        const mapContainer = document.getElementById('map-container');
+        try {
+            const response = await fetch(`/ip-details/<%= visit.ipAddress %>`);
+            if (!response.ok) throw new Error('Không thể tải dữ liệu IP');
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                ipInfoContent.innerHTML = `
+                    <ul>
+                        <li><strong>Quốc gia:</strong> ${data.country || 'N/A'} (${data.countryCode || 'N/A'})</li>
+                        <li><strong>Thành phố:</strong> ${data.city || 'N/A'}, ${data.regionName || 'N/A'}</li>
+                        <li><strong>Nhà cung cấp mạng (ISP):</strong> ${data.isp || 'N/A'}</li>
+                        <li><strong>Tổ chức:</strong> ${data.org || 'N/A'}</li>
+                        <li><strong>Múi giờ:</strong> ${data.timezone || 'N/A'}</li>
+                    </ul>`;
+
+                // Display map
+                const map = L.map(mapContainer).setView([data.lat, data.lon], 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '© OpenStreetMap'
+                }).addTo(map);
+                L.marker([data.lat, data.lon]).addTo(map)
+                    .bindPopup('Vị trí ước tính của IP.').openPopup();
+            } else {
+                ipInfoContent.innerHTML = `<p>Không thể lấy chi tiết: ${data.message || 'Lỗi không xác định'}</p>`;
+            }
+        } catch (error) {
+            ipInfoContent.innerHTML = `<p style="color: var(--pico-color-red-500);">${error.message}</p>`;
+        }
+    })();
+    
+    // Download Fingerprint Components
+    function downloadFingerprintComponents(event){
+      event.preventDefault();
+      const jsonData = <%- JSON.stringify(visit.fingerprintComponents, null, 2) %>;
+      const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'fingerprint_details_<%= visit.fingerprintId %>.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+</script>
+
+<%- include('partials/footer_vietnamese') %>
