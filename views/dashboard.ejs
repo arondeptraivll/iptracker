@@ -20,118 +20,101 @@
   </ul>
 </nav>
 
-<!-- THÔNG BÁO YÊU CẦU KEY -->
+<div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
+
 <% if (!hasActiveKey) { %>
     <div class="toast error" style="margin-top:1rem;">
         Key của bạn chưa được kích hoạt hoặc đã hết hạn. Vui lòng vào trang <b>Quản lý Key</b> để lấy và kích hoạt lại. Các tính năng chính đã bị tạm khóa.
     </div>
 <% } %>
 
+<% if (status === 'captcha_error') { %>
+    <div class="toast error" style="margin-top:1rem;"><strong>Lỗi:</strong> Xác thực Captcha thất bại. Vui lòng thử lại.</div>
+<% } else if (status === 'captcha_missing') { %>
+     <div class="toast error" style="margin-top:1rem;"><strong>Lỗi:</strong> Vui lòng giải Captcha trước.</div>
+<% } else if (status === 'link_created') { %>
+    <div class="toast success" style="margin-top:1rem;"><strong>Thành công:</strong> Đã tạo liên kết mới!</div>
+<% } %>
 
-<!-- Vô hiệu hóa form tạo link khi không có key -->
 <fieldset <%= !hasActiveKey ? 'disabled' : '' %> >
   <hgroup>
     <h2>Tạo liên kết theo dõi mới</h2>
-    <p>Nhập URL đích. Chúng tôi sẽ tạo một liên kết mới để bạn chia sẻ.</p>
+    <p>Giải Captcha để kích hoạt nút "Tạo liên kết".</p>
   </hgroup>
-  
   <form action="/create-link" method="POST">
     <input type="url" name="targetUrl" placeholder="https://url-dich-cua-ban.com" required>
-    <button type="submit">Tạo liên kết</button>
+    <div class="h-captcha" 
+         data-sitekey="<%= hcaptcha_site_key %>"
+         data-callback="onLinkCaptchaSuccess"
+         data-expired-callback="onLinkCaptchaExpired">
+    </div>
+    <button id="create-link-btn" type="submit" disabled>Tạo liên kết</button>
   </form>
 </fieldset>
-
 <hr>
-
 <h2>Liên kết & Kết quả của bạn</h2>
 <small><em>Lưu ý: Các liên kết không có lượt truy cập nào trong 2 ngày sẽ tự động bị xóa.</em></small>
-
 <% if (links.length === 0) { %>
     <p>Bạn chưa tạo liên kết nào. Hãy tạo một liên kết ở trên!</p>
 <% } else { %>
     <% links.forEach(link => { %>
         <article>
             <header style="display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <strong>Liên kết theo dõi:</strong> 
-                    <code style="cursor: pointer;" onclick="navigator.clipboard.writeText('<%= baseUrl %>/t/<%= link.shortId %>'); showToast('Đã sao chép liên kết!');"><%= baseUrl %>/t/<%= link.shortId %></code>
-                </div>
-                <form action="/delete-link/<%= link.shortId %>" method="POST" onsubmit="return confirm('Bạn có chắc muốn xóa liên kết này và tất cả kết quả của nó không?');">
-                    <button type="submit" class="secondary outline" style="padding: 5px 10px; margin: 0;">Xóa Liên kết</button>
-                </form>
+                <div><strong>Liên kết theo dõi:</strong> <code style="cursor: pointer;" onclick="copyAndToast('<%= baseUrl %>/t/<%= link.shortId %>')"><%= baseUrl %>/t/<%= link.shortId %></code></div>
+                <form action="/delete-link/<%= link.shortId %>" method="POST" onsubmit="return confirm('Bạn có chắc muốn xóa liên kết này và tất cả kết quả của nó không?');"><button type="submit" class="secondary outline" style="padding: 5px 10px; margin: 0;">Xóa Liên kết</button></form>
             </header>
             <p><strong>URL Đích:</strong> <a href="<%= link.targetUrl %>" target="_blank"><%= link.targetUrl %></a></p>
-            
             <% if (link.Visits && link.Visits.length > 0) { %>
                 <div class="overflow-auto">
                     <table>
-                        <thead>
-                            <tr>
-                                <th>ID Thiết bị</th>
-                                <th>Địa chỉ IP</th>
-                                <th>Thời gian</th>
-                                <th style="text-align: right;">Hành động</th>
-                            </tr>
-                        </thead>
+                        <thead><tr><th>ID Thiết bị</th><th>Địa chỉ IP</th><th>Thời gian</th><th style="text-align: right;">Hành động</th></tr></thead>
                         <tbody>
                             <% link.Visits.forEach(visit => { %>
                                 <tr id="visit-row-<%= visit.id %>">
-                                    <td><code><%= visit.fingerprintId %></code></td>
-                                    <td><%= visit.ipAddress %></td>
-                                    <td><%= new Date(visit.timestamp).toLocaleString('vi-VN') %></td>
+                                    <td><code><%= visit.fingerprintId %></code></td><td><%= visit.ipAddress %></td><td><%= new Date(visit.timestamp).toLocaleString('vi-VN') %></td>
                                     <td style="text-align: right;">
-                                        <!-- Vô hiệu hóa nút Chi tiết khi không có key -->
-                                        <a href="<%= hasActiveKey ? '/details/' + visit.id : '#' %>" 
-                                           role="button" class="contrast" 
-                                           <%= !hasActiveKey ? 'aria-disabled="true"' : '' %>
-                                           onclick="<%= !hasActiveKey ? "showToast('Vui lòng kích hoạt Key để xem chi tiết.', 'error'); return false;" : "" %>"
-                                           style="padding: 5px 10px; margin:0 5px 0 0;">
-                                           Chi tiết
-                                        </a>
-                                        <!-- Nút xóa không bị ảnh hưởng -->
-                                        <a href="#" role="button" class="secondary" style="padding: 5px 10px; margin:0;" onclick="deleteVisit(event, '<%= visit.id %>')">
-                                           Xóa
-                                        </a>
+                                        <a href="<%= hasActiveKey ? '/details/' + visit.id : '#' %>" role="button" class="contrast" <%= !hasActiveKey ? 'aria-disabled="true"' : '' %> onclick="<%= !hasActiveKey ? "showToast('Vui lòng kích hoạt Key để xem chi tiết.', 'error'); return false;" : "" %>" style="padding: 5px 10px; margin:0 5px 0 0;">Chi tiết</a>
+                                        <a href="#" role="button" class="secondary" style="padding: 5px 10px; margin:0;" onclick="deleteVisit(event, '<%= visit.id %>')">Xóa</a>
                                     </td>
                                 </tr>
                             <% }) %>
                         </tbody>
                     </table>
                 </div>
-            <% } else { %>
-                <p><em>Chưa có lượt truy cập nào cho liên kết này.</em></p>
-            <% } %>
+            <% } else { %> <p><em>Chưa có lượt truy cập nào cho liên kết này.</em></p> <% } %>
         </article>
     <% }) %>
 <% } %>
 
-<!-- Vùng hiển thị Toast thông báo -->
-<div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
-
 <%- include('partials/footer_vietnamese') %>
 
 <script>
+    const createLinkBtn = document.getElementById('create-link-btn');
+    function onLinkCaptchaSuccess(token) { if(createLinkBtn) createLinkBtn.disabled = false; }
+    function onLinkCaptchaExpired() { if(createLinkBtn) createLinkBtn.disabled = true; }
+
     function showToast(message, type = 'success') {
-        const toastContainer = document.getElementById('toast-container');
+        const container = document.getElementById('toast-container');
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
-        toast.textContent = message;
+        toast.innerHTML = `<strong>${type === 'success' ? 'Thành công' : 'Thông báo'}:</strong> ${message}`;
         toast.style.marginBottom = "10px";
-
-        toastContainer.appendChild(toast);
-        
+        container.appendChild(toast);
         setTimeout(() => {
             toast.style.opacity = '0';
             toast.style.transition = 'opacity 0.5s ease';
             setTimeout(() => toast.remove(), 500);
         }, 3000);
     }
+    
+    function copyAndToast(text){
+        navigator.clipboard.writeText(text);
+        showToast('Đã sao chép vào bộ nhớ tạm!', 'success');
+    }
 
     async function deleteVisit(event, visitId) {
         event.preventDefault();
-        if (!confirm('Bạn có chắc muốn xóa kết quả này không?')) {
-            return;
-        }
+        if (!confirm('Bạn có chắc muốn xóa kết quả này không?')) return;
         try {
             const response = await fetch(`/delete-visit/${visitId}`, { method: 'POST' });
             const result = await response.json();
