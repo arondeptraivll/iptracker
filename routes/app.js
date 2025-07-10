@@ -80,7 +80,10 @@ router.get('/details/:visitId', isLoggedIn, isKeyActive, async (req, res) => {
     }
 });
 
-// --- ROUTE MỚI: TRANG CÀI ĐẶT LIÊN KẾT ---
+
+// --- CÁC ROUTE CÀI ĐẶT ---
+
+// Trang Cài đặt Liên kết
 router.get('/link/settings/:shortId', isLoggedIn, isKeyActive, async (req, res) => {
     try {
         const { shortId } = req.params;
@@ -106,8 +109,7 @@ router.get('/link/settings/:shortId', isLoggedIn, isKeyActive, async (req, res) 
     }
 });
 
-
-// --- ROUTE MỚI: LƯU CÀI ĐẶT LIÊN KẾT ---
+// Lưu Cài đặt Liên kết
 router.post('/link/settings/:shortId', isLoggedIn, isKeyActive, verifyCaptcha, async (req, res) => {
     try {
         const { shortId } = req.params;
@@ -116,42 +118,14 @@ router.post('/link/settings/:shortId', isLoggedIn, isKeyActive, verifyCaptcha, a
         });
         if (!link) return res.status(404).send("Không tìm thấy liên kết.");
 
-        link.requireCaptcha = req.body.requireCaptcha === 'on';
+        // Cập nhật cài đặt mới: blockForeignIPs
+        link.blockForeignIPs = req.body.blockForeignIPs === 'on';
         await link.save();
-
         res.redirect('/dashboard?status=settings_saved');
-    } catch (error) {
+    } catch (error)
+    {
         console.error("Lỗi khi lưu cài đặt link:", error);
         res.status(500).send("Lỗi máy chủ.");
-    }
-});
-
-// --- ROUTE MỚI: XỬ LÝ KHI KHÁCH GIẢI CAPTCHA ---
-router.post('/t/:shortId/verify', async (req, res) => {
-    try {
-        const captchaToken = req.body['h-captcha-response'];
-        if (!captchaToken) return res.status(400).send("Vui lòng giải Captcha.");
-
-        const params = new URLSearchParams();
-        params.append('response', captchaToken);
-        params.append('secret', process.env.HCAPTCHA_SECRET_KEY);
-        const hcaptchaResponse = await fetch('https://api.hcaptcha.com/siteverify', {
-            method: 'POST', body: params
-        });
-        const captchaResult = await hcaptchaResponse.json();
-
-        if (!captchaResult.success) {
-            console.error('Xác thực Captcha thất bại cho khách:', captchaResult['error-codes']);
-            return res.status(400).send("Xác thực Captcha thất bại. Vui lòng thử lại.");
-        }
-        
-        const link = await Link.findOne({ where: { shortId: req.params.shortId } });
-        if (!link) return res.status(404).send('Không tìm thấy liên kết.');
-        
-        res.render('track', { targetUrl: link.targetUrl, shortId: link.shortId });
-    } catch (error) {
-        console.error("Lỗi khi xác thực captcha cho khách:", error);
-        res.status(500).send('Lỗi máy chủ');
     }
 });
 
@@ -221,28 +195,45 @@ router.get('/ip-details/:ip', isLoggedIn, isKeyActive, async (req, res) => {
     }
 });
 
-// CẬP NHẬT ROUTE TRACKING CHÍNH
+// Route Tracking chính, nơi xử lý logic lọc IP
 router.get('/t/:shortId', async (req, res) => {
     try {
         const link = await Link.findOne({ where: { shortId: req.params.shortId } });
-        if (!link) return res.status(404).send('Không tìm thấy liên kết');
-        
-        // KIỂM TRA CÀI ĐẶT CAPTCHA
-        if (link.requireCaptcha) {
-            return res.render('captcha_gate', {
-                title: "Xác thực Captcha",
-                shortId: link.shortId,
-                hcaptcha_site_key: process.env.HCAPTCHA_SITE_KEY,
+        if (!link) {
+            return res.status(404).render('message', {
+                title: 'Không tìm thấy', message: 'Liên kết này không tồn tại hoặc đã bị xóa.', isError: true
             });
         }
         
-        res.render('track', { targetUrl: link.targetUrl, shortId: link.shortId });
+        // Nếu không bật cài đặt chặn IP, đi thẳng đến trang tracking
+        if (!link.blockForeignIPs) {
+            return res.render('track', { targetUrl: link.targetUrl, shortId: link.shortId });
+        }
+        
+        const ipAddress = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress;
+
+        // Gọi API tra cứu địa lý IP, chỉ lấy countryCode
+        const geoResponse = await fetch(`http://ip-api.com/json/${ipAddress}?fields=status,message,countryCode`);
+        const geoData = await geoResponse.json();
+        
+        if (geoData.status === 'success' && geoData.countryCode === 'VN') {
+            return res.render('track', { targetUrl: link.targetUrl, shortId: link.shortId });
+        } else {
+            return res.status(403).render('message', {
+                title: 'Truy cập bị từ chối',
+                message: 'Rất tiếc, liên kết này chỉ dành cho người dùng tại Việt Nam.',
+                isError: true
+            });
+        }
     } catch (error) {
-        console.error("Lỗi route tracking:", error);
-        res.status(500).send('Lỗi Máy chủ');
+        console.error("Lỗi route tracking với lọc IP:", error);
+        return res.status(500).render('message', {
+            title: 'Lỗi máy chủ', message: 'Đã có lỗi xảy ra. Vui lòng thử lại sau.', isError: true
+        });
     }
 });
 
+// Endpoint nhận log
 router.post('/log', async (req, res) => {
     const { shortId, fingerprint, components } = req.body;
     if (!shortId || !fingerprint || !components) return res.status(400).json({ status: 'error', message: 'Thiếu dữ liệu' });
