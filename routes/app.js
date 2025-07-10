@@ -6,6 +6,7 @@ const Visit = require('../models/Visit.model');
 const Key = require('../models/Key.model');
 const { Op } = require('sequelize');
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+const { verifyCaptcha } = require('../middleware/captcha'); // <-- IMPORT MIDDLEWARE
 
 // --- MIDDLEWARES ---
 
@@ -23,17 +24,13 @@ async function isKeyActive(req, res, next) {
     try {
         const activeKey = await Key.findOne({ where: { userDiscordId: req.user.discordId }});
 
-        // Kiểm tra xem key có tồn tại và còn hạn không
         if (activeKey && new Date() < new Date(activeKey.expiresAt)) {
-            // Gắn thông tin key vào request để sử dụng ở các nơi khác nếu cần
             req.user.hasActiveKey = true;
             return next();
         } else {
-            // Nếu là request đến một trang, chuyển hướng về trang yêu cầu key
             if (req.method === 'GET') {
                 return res.redirect('/key?status=error_required');
             }
-            // Nếu là request hành động (POST), trả về lỗi
             return res.status(403).json({ success: false, message: "Hành động yêu cầu Key đã kích hoạt." });
         }
     } catch(error) {
@@ -49,7 +46,10 @@ router.get('/', (req, res) => {
     if (req.isAuthenticated()) {
         return res.redirect('/dashboard');
     }
-    res.render('index', { title: 'IP Tracker | Đăng nhập' });
+    res.render('index', { 
+        title: 'IP Tracker | Đăng nhập',
+        HCAPTCHA_SITE_KEY: process.env.HCAPTCHA_SITE_KEY // Truyền Site Key ra view
+    });
 });
 
 // Trang bảng điều khiển
@@ -68,7 +68,9 @@ router.get('/dashboard', isLoggedIn, async (req, res) => {
             user: req.user,
             links: userLinks,
             baseUrl: `${req.protocol}://${req.get('host')}`,
-            hasActiveKey: hasActiveKey // Truyền trạng thái key ra view
+            hasActiveKey: hasActiveKey,
+            hcaptcha_site_key: process.env.HCAPTCHA_SITE_KEY,
+            status: req.query.status
         });
     } catch (error) {
         console.error("Lỗi khi tải bảng điều khiển:", error);
@@ -82,15 +84,11 @@ router.get('/details/:visitId', isLoggedIn, isKeyActive, async (req, res) => {
         const { visitId } = req.params;
         const visit = await Visit.findOne({
             where: { id: visitId },
-            include: {
-                model: Link,
-                where: { userDiscordId: req.user.discordId },
-                required: true,
-            }
+            include: { model: Link, where: { userDiscordId: req.user.discordId }, required: true }
         });
 
         if (!visit) {
-            return res.status(404).send('Không tìm thấy lượt truy cập hoặc bạn không có quyền truy cập.');
+            return res.status(404).send('Không tìm thấy lượt truy cập hoặc bạn không có quyền.');
         }
 
         res.render('details', {
@@ -107,11 +105,11 @@ router.get('/details/:visitId', isLoggedIn, isKeyActive, async (req, res) => {
 
 // --- CÁC HÀNH ĐỘNG (ACTIONS) ---
 
-// Tạo liên kết mới (BẢO VỆ BỞI KEY)
-router.post('/create-link', isLoggedIn, isKeyActive, async (req, res) => {
+// Tạo liên kết mới (BẢO VỆ BỞI KEY VÀ CAPTCHA)
+router.post('/create-link', isLoggedIn, isKeyActive, verifyCaptcha, async (req, res) => {
     const { targetUrl } = req.body;
     if (!targetUrl || !(targetUrl.startsWith('http://') || targetUrl.startsWith('https://'))) {
-        return res.status(400).send('URL đích không hợp lệ.');
+        return res.redirect('/dashboard?status=invalid_url');
     }
     try {
         await Link.create({
@@ -119,7 +117,7 @@ router.post('/create-link', isLoggedIn, isKeyActive, async (req, res) => {
             targetUrl,
             userDiscordId: req.user.discordId
         });
-        res.redirect('/dashboard');
+        res.redirect('/dashboard?status=link_created');
     } catch (error) {
         console.error("Lỗi khi tạo liên kết:", error);
         res.status(500).send('Không thể tạo liên kết');
@@ -130,17 +128,12 @@ router.post('/create-link', isLoggedIn, isKeyActive, async (req, res) => {
 router.post('/delete-link/:shortId', isLoggedIn, async (req, res) => {
     try {
         const { shortId } = req.params;
-        const link = await Link.findOne({
-            where: {
-                shortId: shortId,
-                userDiscordId: req.user.discordId
-            }
-        });
+        const link = await Link.findOne({ where: { shortId, userDiscordId: req.user.discordId } });
         if (link) {
             await link.destroy();
-            res.redirect('/dashboard');
+            res.redirect('/dashboard?status=link_deleted');
         } else {
-            res.status(404).send("Không tìm thấy liên kết hoặc bạn không có quyền.");
+            res.redirect('/dashboard?status=link_notfound');
         }
     } catch (error) {
         console.error("Lỗi khi xóa liên kết:", error);
@@ -154,11 +147,7 @@ router.post('/delete-visit/:visitId', isLoggedIn, async (req, res) => {
         const { visitId } = req.params;
         const visit = await Visit.findOne({
             where: { id: visitId },
-            include: {
-                model: Link,
-                where: { userDiscordId: req.user.discordId },
-                required: true
-            }
+            include: { model: Link, where: { userDiscordId: req.user.discordId }, required: true }
         });
         
         if (visit) {
@@ -192,7 +181,7 @@ router.get('/ip-details/:ip', isLoggedIn, isKeyActive, async (req, res) => {
     }
 });
 
-// Route tracking trung gian (Công khai, không cần key)
+// Route tracking trung gian
 router.get('/t/:shortId', async (req, res) => {
     try {
         const link = await Link.findOne({ where: { shortId: req.params.shortId } });
@@ -206,15 +195,13 @@ router.get('/t/:shortId', async (req, res) => {
     }
 });
 
-// Endpoint nhận log từ client (Công khai, không cần key)
+// Endpoint nhận log từ client
 router.post('/log', async (req, res) => {
     const { shortId, fingerprint, components } = req.body;
     if (!shortId || !fingerprint || !components) {
         return res.status(400).json({ status: 'error', message: 'Thiếu dữ liệu' });
     }
-    
     const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-
     try {
         const link = await Link.findOne({ where: { shortId } });
         if (!link) {
@@ -226,7 +213,6 @@ router.post('/log', async (req, res) => {
             where: { fingerprint: fingerprint },
             include: [{ model: Link, where: { userDiscordId: link.userDiscordId } }]
         });
-
         if (existingVisit) {
             finalFingerprintId = existingVisit.fingerprintId;
         } else {
