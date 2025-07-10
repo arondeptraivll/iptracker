@@ -1,0 +1,19 @@
+<%- include('partials/header_vietnamese') %>
+
+<div class="container" style="text-align: center; margin-top: 20vh;">
+    <article>
+        <% if (isError) { %>
+            <header style="background-color: var(--pico-color-red-600); color: white;">Lỗi</header>
+        <% } else { %>
+             <header>Thông báo</header>
+        <% } %>
+       
+        <p style="font-size: 1.2rem;"><%= message %></p>
+
+        <footer>
+            <a href="/" role="button">Quay về trang chủ</a>
+        </footer>
+    </article>
+</div>
+
+<%- include('partials/footer_vietnamese') %>
