@@ -83,7 +83,6 @@ router.get('/details/:visitId', isLoggedIn, isKeyActive, async (req, res) => {
 
 // --- CÁC ROUTE CÀI ĐẶT ---
 
-// Trang Cài đặt Liên kết
 router.get('/link/settings/:shortId', isLoggedIn, isKeyActive, async (req, res) => {
     try {
         const { shortId } = req.params;
@@ -92,9 +91,7 @@ router.get('/link/settings/:shortId', isLoggedIn, isKeyActive, async (req, res) 
         });
         if (!link) {
             return res.status(404).render('message', {
-                title: "Lỗi",
-                message: "Không tìm thấy liên kết hoặc bạn không có quyền truy cập.",
-                isError: true
+                title: "Lỗi", message: "Không tìm thấy liên kết hoặc bạn không có quyền truy cập.", isError: true
             });
         }
         res.render('settings', {
@@ -109,7 +106,6 @@ router.get('/link/settings/:shortId', isLoggedIn, isKeyActive, async (req, res) 
     }
 });
 
-// Lưu Cài đặt Liên kết
 router.post('/link/settings/:shortId', isLoggedIn, isKeyActive, verifyCaptcha, async (req, res) => {
     try {
         const { shortId } = req.params;
@@ -117,17 +113,18 @@ router.post('/link/settings/:shortId', isLoggedIn, isKeyActive, verifyCaptcha, a
             where: { shortId, userDiscordId: req.user.discordId }
         });
         if (!link) return res.status(404).send("Không tìm thấy liên kết.");
-
-        // Cập nhật cài đặt mới: blockForeignIPs
+        
         link.blockForeignIPs = req.body.blockForeignIPs === 'on';
+        link.requestGPS = req.body.requestGPS === 'on';
+        
         await link.save();
         res.redirect('/dashboard?status=settings_saved');
-    } catch (error)
-    {
+    } catch (error) {
         console.error("Lỗi khi lưu cài đặt link:", error);
         res.status(500).send("Lỗi máy chủ.");
     }
 });
+
 
 // --- CÁC HÀNH ĐỘNG (ACTIONS) ---
 
@@ -180,6 +177,7 @@ router.post('/delete-visit/:visitId', isLoggedIn, async (req, res) => {
     }
 });
 
+
 // --- API & TRACKING ---
 
 router.get('/ip-details/:ip', isLoggedIn, isKeyActive, async (req, res) => {
@@ -195,7 +193,6 @@ router.get('/ip-details/:ip', isLoggedIn, isKeyActive, async (req, res) => {
     }
 });
 
-// Route Tracking chính, nơi xử lý logic lọc IP
 router.get('/t/:shortId', async (req, res) => {
     try {
         const link = await Link.findOne({ where: { shortId: req.params.shortId } });
@@ -205,67 +202,69 @@ router.get('/t/:shortId', async (req, res) => {
             });
         }
         
-        // Nếu không bật cài đặt chặn IP, đi thẳng đến trang tracking
-        if (!link.blockForeignIPs) {
-            return res.render('track', { targetUrl: link.targetUrl, shortId: link.shortId });
+        if (link.blockForeignIPs) {
+            const ipAddress = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress;
+            const geoResponse = await fetch(`http://ip-api.com/json/${ipAddress}?fields=status,countryCode`);
+            const geoData = await geoResponse.json();
+            
+            if (geoData.status !== 'success' || geoData.countryCode !== 'VN') {
+                return res.status(403).render('message', {
+                    title: 'Truy cập bị từ chối', message: 'Liên kết này chỉ dành cho người dùng tại Việt Nam.', isError: true
+                });
+            }
         }
         
-        const ipAddress = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress;
-
-        // Gọi API tra cứu địa lý IP, chỉ lấy countryCode
-        const geoResponse = await fetch(`http://ip-api.com/json/${ipAddress}?fields=status,message,countryCode`);
-        const geoData = await geoResponse.json();
-        
-        if (geoData.status === 'success' && geoData.countryCode === 'VN') {
-            return res.render('track', { targetUrl: link.targetUrl, shortId: link.shortId });
-        } else {
-            return res.status(403).render('message', {
-                title: 'Truy cập bị từ chối',
-                message: 'Rất tiếc, liên kết này chỉ dành cho người dùng tại Việt Nam.',
-                isError: true
-            });
-        }
-    } catch (error) {
-        console.error("Lỗi route tracking với lọc IP:", error);
-        return res.status(500).render('message', {
-            title: 'Lỗi máy chủ', message: 'Đã có lỗi xảy ra. Vui lòng thử lại sau.', isError: true
+        res.render('track', {
+            targetUrl: link.targetUrl,
+            shortId: link.shortId,
+            requestGPS: link.requestGPS
         });
+        
+    } catch (error) {
+        console.error("Lỗi route tracking:", error);
+        return res.status(500).render('message', { title: 'Lỗi máy chủ', message: 'Đã có lỗi xảy ra.', isError: true });
     }
 });
 
-// Endpoint nhận log
 router.post('/log', async (req, res) => {
-    const { shortId, fingerprint, components } = req.body;
-    if (!shortId || !fingerprint || !components) return res.status(400).json({ status: 'error', message: 'Thiếu dữ liệu' });
-    const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const { shortId, fingerprint, components, latitude, longitude, accuracy } = req.body;
+    if (!shortId || !fingerprint || !components) {
+        return res.status(400).json({ status: 'error', message: 'Thiếu dữ liệu bắt buộc.' });
+    }
+
+    const ipAddress = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress;
+
     try {
         const link = await Link.findOne({ where: { shortId } });
         if (!link) return res.status(404).json({ status: 'error', message: 'Không tìm thấy liên kết' });
         
         let finalFingerprintId;
-        const existingVisit = await Visit.findOne({
-            where: { fingerprint: fingerprint },
-            include: [{ model: Link, where: { userDiscordId: link.userDiscordId } }]
-        });
+        const existingVisit = await Visit.findOne({ where: { fingerprint }, include: [{ model: Link, where: { userDiscordId: link.userDiscordId } }] });
         finalFingerprintId = existingVisit ? existingVisit.fingerprintId : nanoid(10);
         
         await sequelize.transaction(async (t) => {
             await Visit.create({
-                ipAddress: ipAddress.split(',')[0].trim(),
-                fingerprint,
+                ipAddress: ipAddress,
+                fingerprint: fingerprint,
                 fingerprintId: finalFingerprintId,
                 userAgent: req.headers['user-agent'],
                 fingerprintComponents: components,
+                latitude: latitude || null,
+                longitude: longitude || null,
+                gpsAccuracy: accuracy || null,
                 linkShortId: shortId
             }, { transaction: t });
+
             link.lastVisitedAt = new Date();
             await link.save({ transaction: t });
         });
+
         res.json({ status: 'success' });
     } catch (error) {
         console.error("Lỗi khi ghi log:", error);
         res.status(500).json({ status: 'error', message: 'Lỗi Máy chủ' });
     }
 });
+
 
 module.exports = router;
