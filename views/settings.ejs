@@ -17,24 +17,23 @@
     
     <article>
         <form action="/link/settings/<%= link.shortId %>" method="POST">
-            <header>Tùy chọn Bảo mật</header>
+            <header>Tùy chọn Lọc Truy cập</header>
             
-            <!-- CÀI ĐẶT CAPTCHA -->
+            <!-- THAY ĐỔI CÀI ĐẶT Ở ĐÂY -->
             <fieldset>
-                <label for="requireCaptcha">
+                <label for="blockForeignIPs">
                     <input 
                         type="checkbox" 
-                        id="requireCaptcha" 
-                        name="requireCaptcha"
+                        id="blockForeignIPs" 
+                        name="blockForeignIPs"
                         role="switch"
-                        <%= link.requireCaptcha ? 'checked' : '' %>>
-                    <strong>Yêu cầu Captcha:</strong> Khi được bật, người truy cập phải giải Captcha trước khi được chuyển hướng đến URL đích.
+                        <%= link.blockForeignIPs ? 'checked' : '' %>>
+                    <strong>Chặn IP nước ngoài:</strong> Khi được bật, chỉ những người dùng có địa chỉ IP từ Việt Nam mới được chuyển hướng.
                 </label>
+                <small>Hệ thống sử dụng dịch vụ tra cứu địa lý để xác định quốc gia của IP.</small>
             </fieldset>
 
             <hr>
-            
-            <!-- (Khu vực này có thể được sử dụng cho các cài đặt trong tương lai) -->
 
             <footer style="margin-top: 2rem;">
                 <p><small>Để lưu thay đổi, vui lòng xác thực bạn không phải là robot.</small></p>
