@@ -1,7 +1,9 @@
 <%- include('partials/header_vietnamese') %>
 
 <nav>
-    <ul><li><strong>IP Tracker</strong></li></ul>
+    <ul>
+      <li><strong>IP Tracker</strong> by Gemlogin Tool (TuanHaii)</li>
+    </ul>
     <ul>
       <li><a href="/dashboard" role="button" class="secondary">Về Bảng điều khiển</a></li>
       <li>
@@ -23,42 +25,95 @@
     <p>ID Thiết bị: <code><%= visit.fingerprintId %></code> - Thời gian: <code><%= new Date(visit.timestamp).toLocaleString('vi-VN') %></code></p>
 </hgroup>
 
+<!-- HỆ THỐNG TAB -->
 <div id="tabs">
     <div role="tablist">
         <button role="tab" aria-selected="true" aria-controls="location-panel">Thông tin Vị trí</button>
         <button role="tab" aria-selected="false" aria-controls="fp-panel">Dấu vân tay Trình duyệt</button>
     </div>
     
+    <!-- ================== TAB VỊ TRÍ (ĐÃ SỬA LẠI HOÀN CHỈNH) ================== -->
     <div role="tabpanel" id="location-panel">
-        <% if (visit.latitude && visit.longitude) { %>
-            <div class="toast success" style="margin-top: 0;">📍 <strong>Vị trí chính xác từ GPS</strong> đã được ghi lại.</div>
-            <div id="location-info" style="margin: 1rem 0;">
-                <!-- Thông tin chi tiết GPS sẽ được thêm vào đây bằng JavaScript sau khi API geocoding chạy -->
-            </div>
-        <% } else { %>
-            <div class="toast" style="margin-top: 0;">ℹ️ <strong>Vị trí ước tính từ địa chỉ IP.</strong> Người dùng không cung cấp hoặc từ chối chia sẻ vị trí GPS.</div>
-        <% } %>
-
-        <!-- NƠI HIỂN THỊ THÔNG TIN CHI TIẾT CỦA CẢ IP VÀ GPS -->
-        <div id="detailed-info-container" style="margin: 1rem 0;">
-             <!-- Nội dung sẽ được điền bằng JS -->
-        </div>
-
+        
+        <!-- BẢN ĐỒ -->
         <div id="map-container" style="height: 400px; width: 100%; margin-top: 1rem; border-radius: var(--border-radius); background-color: var(--pico-muted-background-color);">
              <progress style="position: relative; top: 45%;"></progress>
         </div>
+        
+        <div class="grid" style="margin-top: 2rem;">
+            
+            <!-- KHỐI 1: THÔNG TIN TỪ GPS (chỉ hiện khi có) -->
+            <% if (visit.latitude && visit.longitude) { %>
+                <article>
+                    <header>
+                        <strong style="color: var(--pico-color-green-400);">📍 Vị trí GPS (Chính xác)</strong>
+                    </header>
+                    <ul>
+                        <li><strong>Vĩ độ:</strong> <code><%= visit.latitude %></code></li>
+                        <li><strong>Kinh độ:</strong> <code><%= visit.longitude %></code></li>
+                        <li><strong>Độ chính xác:</strong> khoảng <%= Math.round(visit.gpsAccuracy) %> mét</li>
+                    </ul>
+                </article>
+            <% } %>
+
+            <!-- KHỐI 2: THÔNG TIN TỪ IP (luôn hiện) -->
+            <article id="ip-info-article">
+                <header>
+                    <strong>ℹ️ Vị trí IP (Ước tính)</strong>
+                </header>
+                <div id="ip-info-content">
+                    <progress></progress>
+                </div>
+            </article>
+
+        </div>
     </div>
     
+    <!-- ================== TAB FINGERPRINT (ĐÃ KHÔI PHỤC) ================== -->
     <div role="tabpanel" id="fp-panel" hidden>
-        <!-- ... (Phần này đã đúng, không cần sửa) ... -->
+        <h4>Các thành phần tạo nên Dấu vân tay Trình duyệt</h4>
+        <p>Đây là tất cả các thông tin mà trình duyệt của khách truy cập đã cung cấp để tạo ra một định danh duy nhất.</p>
+        <div class="overflow-auto">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Thành phần</th>
+                        <th>Giá trị</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% if (visit.fingerprintComponents && Object.keys(visit.fingerprintComponents).length > 0) { %>
+                        <% Object.entries(visit.fingerprintComponents).forEach(([key, component]) => { %>
+                            <tr>
+                                <td style="text-transform: capitalize;"><strong><%= key.replace(/_/g, ' ') %></strong></td>
+                                <td>
+                                    <% if (typeof component.value === 'object' && component.value !== null) { %>
+                                        <pre><code style="font-size: 0.9em; white-space: pre-wrap;"><%- JSON.stringify(component.value, null, 2).replace(/</g, "<").replace(/>/g, ">") %></code></pre>
+                                    <% } else { %>
+                                        <code style="word-break: break-all;"><%= component.value %></code>
+                                    <% } %>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    <% } else { %>
+                        <tr><td colspan="2">Không có dữ liệu chi tiết về dấu vân tay.</td></tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+        <footer style="margin-top: 1rem;">
+             <a href="#" role="button" onclick="downloadFingerprintComponents(event)" class="secondary">Tải xuống Dữ liệu Fingerprint (JSON)</a>
+        </footer>
     </div>
 </div>
 
+<!-- SCRIPT VÀ CSS CHO BẢN ĐỒ -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+<!-- SCRIPT LOGIC CỦA TRANG -->
 <script>
-    // --- SCRIPT CHO TAB VÀ DOWNLOAD --- (Giữ nguyên, tôi sẽ thêm vào đây)
+    // --- SCRIPT CHUNG CHO TAB VÀ DOWNLOAD ---
     const tabs = document.querySelectorAll('[role="tab"]');
     tabs.forEach(tab => {
         tab.addEventListener('click', (e) => {
@@ -72,7 +127,7 @@
 
     function downloadFingerprintComponents(event){
       event.preventDefault();
-      const jsonData = <%- JSON.stringify(visit.fingerprintComponents, null, 2) %>;
+      const jsonData = <%- JSON.stringify(visit.fingerprintComponents || {}, null, 2) %>;
       const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -84,61 +139,71 @@
       URL.revokeObjectURL(url);
     }
     
-    // --- HÀM HIỂN THỊ MAP VÀ THÔNG TIN (SỬA LỖI TRIỆT ĐỂ) ---
-    async function displayLocationData() {
-        const mapContainer = document.getElementById('map-container');
-        const infoContainer = document.getElementById('detailed-info-container');
+    // --- HÀM LOGIC CHÍNH ĐỂ HIỂN THỊ DỮ LIỆU ---
+    async function initializeLocationData() {
         const hasGPS = <%- !!(visit.latitude && visit.longitude) %>;
-
+        
+        // 1. Luôn gọi API để lấy thông tin chi tiết của IP
+        const ipInfo = await fetchIpDetails();
+        
+        // 2. Vẽ bản đồ dựa trên dữ liệu có sẵn
         if (hasGPS) {
-            // Trường hợp có GPS
+            // Ưu tiên vẽ bản đồ theo GPS nếu có
             const lat = <%= visit.latitude %>;
             const lon = <%= visit.longitude %>;
             const accuracy = <%= visit.gpsAccuracy %>;
-
-            infoContainer.innerHTML = `
-                <ul>
-                    <li><strong>Nguồn:</strong> GPS</li>
-                    <li><strong>Vĩ độ:</strong> <code>${lat}</code></li>
-                    <li><strong>Kinh độ:</strong> <code>${lon}</code></li>
-                    <li><strong>Độ chính xác:</strong> khoảng ${Math.round(accuracy)} mét</li>
-                </ul>`;
-
-            const map = L.map(mapContainer).setView([lat, lon], 16);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
-            L.marker([lat, lon]).addTo(map).bindPopup('Vị trí GPS của thiết bị').openPopup();
-            L.circle([lat, lon], { radius: accuracy, color: '#1095c1', fillColor: '#1095c1', fillOpacity: 0.2 }).addTo(map);
-
+            drawMap(lat, lon, accuracy, 16, 'Vị trí GPS chính xác');
+        } else if (ipInfo) {
+            // Nếu không có GPS, vẽ bản đồ theo IP
+            drawMap(ipInfo.lat, ipInfo.lon, 0, 13, 'Vị trí ước tính từ IP');
         } else {
-            // Trường hợp CHỈ có IP, gọi API
-            infoContainer.innerHTML = `<progress></progress>`;
-            try {
-                const response = await fetch(`/ip-details/<%= visit.ipAddress %>`);
-                const data = await response.json();
-                if (data.status === 'success') {
-                     infoContainer.innerHTML = `
-                        <ul>
-                            <li><strong>Nguồn:</strong> Địa chỉ IP (<code>${visit.ipAddress}</code>)</li>
-                            <li><strong>Quốc gia:</strong> ${data.country || 'N/A'} (${data.countryCode || 'N/A'})</li>
-                            <li><strong>Thành phố/Vùng:</strong> ${data.city || 'N/A'}, ${data.regionName || 'N/A'}</li>
-                            <li><strong>ISP:</strong> ${data.isp || 'N/A'}</li>
-                        </ul>`;
-                    const map = L.map(mapContainer).setView([data.lat, data.lon], 13);
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
-                    L.marker([data.lat, data.lon]).addTo(map).bindPopup('Vị trí ước tính từ IP.').openPopup();
-                } else {
-                     mapContainer.innerHTML = `<p class="toast error">Không thể tải bản đồ vị trí từ IP.</p>`;
-                     infoContainer.innerHTML = '';
-                }
-            } catch (error) {
-                mapContainer.innerHTML = `<p class="toast error">Lỗi tải dữ liệu vị trí.</p>`;
-                infoContainer.innerHTML = '';
-            }
+            // Nếu không có dữ liệu nào, hiển thị thông báo lỗi trên map
+             document.getElementById('map-container').innerHTML = '<p class="toast error">Không thể tải dữ liệu bản đồ.</p>';
         }
     }
 
-    // Chạy hàm ngay khi trang tải xong
-    document.addEventListener('DOMContentLoaded', displayLocationData);
+    // Hàm con: Gọi và xử lý API chi tiết IP
+    async function fetchIpDetails() {
+        const ipInfoContainer = document.getElementById('ip-info-content');
+        try {
+            const response = await fetch(`/ip-details/<%= visit.ipAddress %>`);
+            const data = await response.json();
+            if (data.status === 'success') {
+                 ipInfoContainer.innerHTML = `
+                    <ul>
+                        <li><strong>Địa chỉ IP:</strong> <code>${visit.ipAddress}</code></li>
+                        <li><strong>Quốc gia:</strong> ${data.country || 'N/A'} (${data.countryCode || 'N/A'})</li>
+                        <li><strong>Thành phố/Vùng:</strong> ${data.city || 'N/A'}, ${data.regionName || 'N/A'}</li>
+                        <li><strong>Nhà mạng (ISP):</strong> ${data.isp || 'N/A'}</li>
+                        <li><strong>Tổ chức:</strong> ${data.org || 'N/A'}</li>
+                    </ul>`;
+                return data; // Trả về dữ liệu để hàm vẽ map có thể dùng
+            } else {
+                throw new Error(data.message);
+            }
+        } catch (error) {
+            ipInfoContainer.innerHTML = `<p style="color: var(--pico-color-red-500);">Lỗi tải thông tin IP: ${error.message}</p>`;
+            return null;
+        }
+    }
+
+    // Hàm con: Vẽ bản đồ
+    function drawMap(lat, lon, accuracy, zoom, popupText) {
+        const mapContainer = document.getElementById('map-container');
+        const map = L.map(mapContainer).setView([lat, lon], zoom);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+        
+        // Đánh dấu điểm chính
+        L.marker([lat, lon]).addTo(map).bindPopup(popupText).openPopup();
+        
+        // Vẽ vòng tròn chính xác nếu là GPS
+        if (accuracy > 0) {
+            L.circle([lat, lon], { radius: accuracy, color: '#1095c1', fillColor: '#1095c1', fillOpacity: 0.2 }).addTo(map);
+        }
+    }
+
+    // Chạy hàm chính khi trang tải xong
+    document.addEventListener('DOMContentLoaded', initializeLocationData);
 </script>
 
 <%- include('partials/footer_vietnamese') %>
