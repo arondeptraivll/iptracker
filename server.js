@@ -24,10 +24,11 @@ const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID;
 const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
 const SESSION_SECRET = process.env.SESSION_SECRET;
 const BASE_URL = process.env.RENDER_EXTERNAL_URL; // Render cung cấp biến này tự động
+const HCAPTCHA_SITE_KEY = process.env.HCAPTCHA_SITE_KEY;
 
 // Kiểm tra các biến môi trường quan trọng
-if (!DISCORD_CLIENT_ID || !DISCORD_CLIENT_SECRET || !SESSION_SECRET || !BASE_URL) {
-    console.error("LỖI: Thiếu các biến môi trường cần thiết! (DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, SESSION_SECRET, RENDER_EXTERNAL_URL)");
+if (!DISCORD_CLIENT_ID || !DISCORD_CLIENT_SECRET || !SESSION_SECRET || !BASE_URL || !HCAPTCHA_SITE_KEY) {
+    console.error("LỖI: Thiếu các biến môi trường cần thiết! (DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, SESSION_SECRET, RENDER_EXTERNAL_URL, HCAPTCHA_SITE_KEY)");
     process.exit(1);
 }
 
@@ -136,7 +137,7 @@ async function startServer() {
         await sequelize.authenticate();
         console.log('✅ Kết nối CSDL thành công.');
         
-        await sequelize.sync({ alter: true }); // Dùng alter để cập nhật CSDL một cách an toàn
+        await sequelize.sync({ alter: true });
         console.log('✅ Đồng bộ hóa Models thành công.');
 
         app.listen(PORT, () => {
