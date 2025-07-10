@@ -1,6 +1,5 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
-const Link = require('./Link.model');
 
 const Visit = sequelize.define('Visit', {
     id: {
@@ -8,33 +7,26 @@ const Visit = sequelize.define('Visit', {
         autoIncrement: true,
         primaryKey: true,
     },
-    ipAddress: {
-        type: DataTypes.STRING,
-        allowNull: false,
-    },
-    fingerprint: {
-        type: DataTypes.STRING, // Chuỗi hash định danh thiết bị
-        allowNull: false,
-    },
-    fingerprintId: {
-        type: DataTypes.STRING, // ID duy nhất cho mỗi thiết bị
-        allowNull: false,
-    },
-    // ---- TRƯỜNG MỚI QUAN TRỌNG ----
-    fingerprintComponents: {
-        type: DataTypes.JSONB, // Kiểu JSONB của PostgreSQL để lưu đối tượng chi tiết
+    ipAddress: { type: DataTypes.STRING, allowNull: false },
+    fingerprint: { type: DataTypes.STRING, allowNull: false },
+    fingerprintId: { type: DataTypes.STRING, allowNull: false },
+    fingerprintComponents: { type: DataTypes.JSONB, allowNull: true },
+    userAgent: { type: DataTypes.TEXT },
+    timestamp: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+    
+    // ---- CÁC CỘT GPS MỚI ----
+    latitude: {
+        type: DataTypes.DOUBLE, // Dùng DOUBLE để có độ chính xác cao
         allowNull: true,
     },
-    userAgent: {
-        type: DataTypes.TEXT,
+    longitude: {
+        type: DataTypes.DOUBLE,
+        allowNull: true,
     },
-    timestamp: {
-        type: DataTypes.DATE,
-        defaultValue: DataTypes.NOW,
-    },
+    gpsAccuracy: {
+        type: DataTypes.FLOAT, // Độ chính xác (tính bằng mét)
+        allowNull: true,
+    }
 });
-
-Link.hasMany(Visit, { foreignKey: 'linkShortId', sourceKey: 'shortId' });
-Visit.belongsTo(Link, { foreignKey: 'linkShortId', targetKey: 'shortId' });
 
 module.exports = Visit;
