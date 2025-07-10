@@ -1,0 +1,53 @@
+<%- include('partials/header_vietnamese') %>
+
+<div class="container" style="text-align: center; margin-top: 15vh;">
+    <article>
+        <hgroup>
+            <h1>Yêu cầu Xác thực</h1>
+            <p>Để tiếp tục, vui lòng xác nhận bạn không phải là robot.</p>
+        </hgroup>
+
+        <!-- Form sẽ tự động được gửi đi bằng JavaScript khi captcha được giải -->
+        <form id="captcha-form" action="/t/<%= shortId %>/verify" method="POST">
+             <div style="display: inline-block;">
+                <div class="h-captcha"
+                    data-sitekey="<%= hcaptcha_site_key %>"
+                    data-callback="onCaptchaSolved"
+                    data-error-callback="onCaptchaError">
+                </div>
+             </div>
+             <!-- Fallback cho trường hợp JavaScript bị vô hiệu hóa -->
+             <noscript>
+                <p>Vui lòng bật JavaScript để có thể giải Captcha.</p>
+                <p>Nếu không thể, hãy tải lại trang.</p>
+             </noscript>
+        </form>
+        <div id="error-message" style="color: var(--pico-color-red-500); margin-top: 1rem;"></div>
+    </article>
+</div>
+
+<script>
+    function onCaptchaSolved(token) {
+        // Ẩn thông báo lỗi cũ nếu có
+        document.getElementById('error-message').textContent = '';
+        // Thêm một input ẩn chứa token vào form
+        const form = document.getElementById('captcha-form');
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'h-captcha-response';
+        input.value = token;
+        form.appendChild(input);
+        
+        // Hiển thị trạng thái đang tải và submit form
+        form.innerHTML += '<p>Đang xác thực, vui lòng chờ...</p><progress></progress>';
+        form.submit();
+    }
+
+    function onCaptchaError(err) {
+        console.error('Lỗi hCaptcha cho khách truy cập:', err);
+        const errorContainer = document.getElementById('error-message');
+        errorContainer.textContent = 'Đã xảy ra lỗi với Captcha. Vui lòng tải lại trang và thử lại.';
+    }
+</script>
+
+<%- include('partials/footer_vietnamese') %>
