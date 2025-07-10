@@ -1,65 +1,89 @@
 <%- include('partials/header_vietnamese') %>
-
 <div class="container" style="text-align: center; margin-top: 15vh;">
     <article>
         <hgroup>
             <h1>Đang tạo Key...</h1>
-            <p>Hệ thống đang xử lý, vui lòng đợi thanh tiến trình hoàn tất.</p>
+            <p id="instruction">Hệ thống đang xử lý, vui lòng đợi thanh tiến trình hoàn tất.</p>
         </hgroup>
-
         <progress id="progress-bar" value="0" max="100" style="width: 100%;"></progress>
-        <p>Còn lại <span id="timer" style="font-weight: bold;">10</span> giây</p>
-
-        <div id="result-container">
-             <!-- Nơi hiển thị nút bấm sau khi hoàn tất -->
-        </div>
+        <p id="timer-text">Còn lại <span id="timer" style="font-weight: bold;">10</span> giây</p>
+        <div id="result-container" style="margin-top: 1rem;"></div>
     </article>
 </div>
-
 <script>
     const progressBar = document.getElementById('progress-bar');
     const timerEl = document.getElementById('timer');
+    const timerText = document.getElementById('timer-text');
+    const instruction = document.getElementById('instruction');
     const resultContainer = document.getElementById('result-container');
     let timeLeft = 10;
+    let captchaToken = null;
+    let hcaptchaWidgetID = null;
 
-    // Giả lập tiến trình
+    function onGetKeyCaptchaSuccess(token) {
+        captchaToken = token;
+        generateAndGetShortenedUrl();
+    }
+
+    function onGetKeyCaptchaExpired() {
+        captchaToken = null;
+        if (typeof hcaptcha !== 'undefined' && hcaptchaWidgetID !== null) {
+            hcaptcha.reset(hcaptchaWidgetID);
+        }
+        resultContainer.innerHTML += `<small style="color: var(--pico-color-red-400)">Captcha đã hết hạn, vui lòng giải lại.</small>`;
+    }
+
     const interval = setInterval(() => {
         timeLeft--;
-        const progress = (10 - timeLeft) * 10;
-        progressBar.value = progress;
+        progressBar.value = (10 - timeLeft) * 10;
         timerEl.textContent = timeLeft;
-
         if (timeLeft <= 0) {
             clearInterval(interval);
-            timerEl.parentElement.innerHTML = '<strong>Đã hoàn tất!</strong>';
-            progressBar.value = 100;
-            generateAndGetShortenedUrl();
+            timerText.style.display = 'none';
+            instruction.textContent = "Để nhận link, hãy xác thực bạn không phải người máy."
+            progressBar.style.display = 'none';
+            
+            const captchaContainer = document.createElement('div');
+            resultContainer.appendChild(captchaContainer);
+
+            if (typeof hcaptcha !== 'undefined') {
+                 hcaptchaWidgetID = hcaptcha.render(captchaContainer, {
+                    sitekey: '<%= hcaptcha_site_key %>',
+                    callback: onGetKeyCaptchaSuccess,
+                    'expired-callback': onGetKeyCaptchaExpired
+                });
+            } else {
+                resultContainer.innerHTML = '<p class="toast error">Không thể tải Captcha. Vui lòng tải lại trang.</p>'
+            }
         }
     }, 1000);
 
-    // Hàm gọi API để tạo key và lấy link rút gọn
     async function generateAndGetShortenedUrl() {
-        resultContainer.innerHTML = `<p><progress></progress> Đang rút gọn liên kết, vui lòng chờ...</p>`;
+        resultContainer.innerHTML = `<div id="loading-spinner"><progress></progress><p>Đang xử lý...</p></div>`;
+
+        if (!captchaToken) {
+            resultContainer.innerHTML = `<p class="toast error">Lỗi: Vui lòng giải captcha trước.</p>`;
+            return;
+        }
+
         try {
             const response = await fetch('/key/generate', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 'h-captcha-response': captchaToken })
             });
             const data = await response.json();
             
             if(data.success) {
                 resultContainer.innerHTML = `
                     <p style="color: var(--pico-color-green-400);">Liên kết lấy key của bạn đã sẵn sàng!</p>
-                    <a href="${data.shortenedUrl}" role="button" class="contrast" target="_blank">LẤY KEY NGAY</a>
+                    <a href="${data.shortenedUrl}" role="button" class="contrast" target="_blank">NHẤN VÀO ĐÂY ĐỂ LẤY KEY</a>
                     <br><small>(Bạn sẽ được chuyển hướng đến trang vượt link để nhận key)</small>
                 `;
-            } else {
-                throw new Error(data.message || 'Lỗi không xác định từ Link4m');
-            }
+            } else { throw new Error(data.message); }
         } catch(error) {
-             resultContainer.innerHTML = `<p class="toast error"><strong>Lỗi:</strong> ${error.message}</p>`;
+             resultContainer.innerHTML = `<p class="toast error"><strong>Lỗi:</strong> ${error.message || 'Không thể tạo key, vui lòng thử lại sau.'}</p>`;
         }
     }
 </script>
-
 <%- include('partials/footer_vietnamese') %>
