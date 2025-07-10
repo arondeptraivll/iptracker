@@ -7,12 +7,29 @@ const Visit = sequelize.define('Visit', {
         autoIncrement: true,
         primaryKey: true,
     },
-    ipAddress: { type: DataTypes.STRING, allowNull: false },
-    fingerprint: { type: DataTypes.STRING, allowNull: false },
-    fingerprintId: { type: DataTypes.STRING, allowNull: false },
-    fingerprintComponents: { type: DataTypes.JSONB, allowNull: true },
-    userAgent: { type: DataTypes.TEXT },
-    timestamp: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+    ipAddress: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    fingerprint: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    fingerprintId: {
+        type: DataTypes.STRING,
+        allowNull: false
+    },
+    fingerprintComponents: {
+        type: DataTypes.JSONB,
+        allowNull: true
+    },
+    userAgent: {
+        type: DataTypes.TEXT
+    },
+    timestamp: {
+        type: DataTypes.DATE,
+        defaultValue: DataTypes.NOW
+    },
     
     // ---- CÁC CỘT GPS MỚI ----
     latitude: {
