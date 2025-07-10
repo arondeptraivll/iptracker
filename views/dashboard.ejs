@@ -23,17 +23,17 @@
 <div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
 
 <% if (!hasActiveKey) { %>
-    <div class="toast error" style="margin-top:1rem;">
-        Key của bạn chưa được kích hoạt hoặc đã hết hạn. Vui lòng vào trang <b>Quản lý Key</b> để lấy và kích hoạt lại. Các tính năng chính đã bị tạm khóa.
-    </div>
+    <div class="toast error" style="margin-top:1rem;">Key của bạn chưa được kích hoạt hoặc đã hết hạn. Vui lòng vào trang <b>Quản lý Key</b> để lấy và kích hoạt lại. Các tính năng chính đã bị tạm khóa.</div>
 <% } %>
 
-<% if (status === 'captcha_error') { %>
-    <div class="toast error" style="margin-top:1rem;"><strong>Lỗi:</strong> Xác thực Captcha thất bại. Vui lòng thử lại.</div>
-<% } else if (status === 'captcha_missing') { %>
-     <div class="toast error" style="margin-top:1rem;"><strong>Lỗi:</strong> Vui lòng giải Captcha trước.</div>
-<% } else if (status === 'link_created') { %>
-    <div class="toast success" style="margin-top:1rem;"><strong>Thành công:</strong> Đã tạo liên kết mới!</div>
+<% if (status) { %>
+    <% if (status === 'captcha_error' || status === 'captcha_missing') { %>
+        <div class="toast error" style="margin-top:1rem;"><strong>Lỗi:</strong> Xác thực Captcha thất bại. Vui lòng thử lại.</div>
+    <% } else if (status === 'link_created') { %>
+        <div class="toast success" style="margin-top:1rem;"><strong>Thành công:</strong> Đã tạo liên kết mới!</div>
+    <% } else if (status === 'settings_saved') { %>
+        <div class="toast success" style="margin-top:1rem;"><strong>Thành công:</strong> Đã lưu cài đặt liên kết!</div>
+    <% } %>
 <% } %>
 
 <fieldset <%= !hasActiveKey ? 'disabled' : '' %> >
@@ -43,11 +43,7 @@
   </hgroup>
   <form action="/create-link" method="POST">
     <input type="url" name="targetUrl" placeholder="https://url-dich-cua-ban.com" required>
-    <div class="h-captcha" 
-         data-sitekey="<%= hcaptcha_site_key %>"
-         data-callback="onLinkCaptchaSuccess"
-         data-expired-callback="onLinkCaptchaExpired">
-    </div>
+    <div class="h-captcha" data-sitekey="<%= hcaptcha_site_key %>" data-callback="onLinkCaptchaSuccess" data-expired-callback="onLinkCaptchaExpired"></div>
     <button id="create-link-btn" type="submit" disabled>Tạo liên kết</button>
   </form>
 </fieldset>
@@ -59,9 +55,12 @@
 <% } else { %>
     <% links.forEach(link => { %>
         <article>
-            <header style="display: flex; justify-content: space-between; align-items: center;">
+            <header style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
                 <div><strong>Liên kết theo dõi:</strong> <code style="cursor: pointer;" onclick="copyAndToast('<%= baseUrl %>/t/<%= link.shortId %>')"><%= baseUrl %>/t/<%= link.shortId %></code></div>
-                <form action="/delete-link/<%= link.shortId %>" method="POST" onsubmit="return confirm('Bạn có chắc muốn xóa liên kết này và tất cả kết quả của nó không?');"><button type="submit" class="secondary outline" style="padding: 5px 10px; margin: 0;">Xóa Liên kết</button></form>
+                <div style="display:flex; gap: 0.5rem;">
+                    <a href="/link/settings/<%= link.shortId %>" role="button" class="contrast" style="padding: 5px 10px; margin: 0;">Cài đặt</a>
+                    <form action="/delete-link/<%= link.shortId %>" method="POST" onsubmit="return confirm('Bạn có chắc muốn xóa liên kết này và tất cả kết quả của nó không?');" style="margin:0;"><button type="submit" class="secondary outline" style="padding: 5px 10px; margin: 0;">Xóa</button></form>
+                </div>
             </header>
             <p><strong>URL Đích:</strong> <a href="<%= link.targetUrl %>" target="_blank"><%= link.targetUrl %></a></p>
             <% if (link.Visits && link.Visits.length > 0) { %>
@@ -87,7 +86,6 @@
 <% } %>
 
 <%- include('partials/footer_vietnamese') %>
-
 <script>
     const createLinkBtn = document.getElementById('create-link-btn');
     function onLinkCaptchaSuccess(token) { if(createLinkBtn) createLinkBtn.disabled = false; }
@@ -97,7 +95,8 @@
         const container = document.getElementById('toast-container');
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
-        toast.innerHTML = `<strong>${type === 'success' ? 'Thành công' : 'Thông báo'}:</strong> ${message}`;
+        const typeText = type === 'success' ? 'Thành công' : (type === 'error' ? 'Lỗi' : 'Thông báo');
+        toast.innerHTML = `<strong>${typeText}:</strong> ${message}`;
         toast.style.marginBottom = "10px";
         container.appendChild(toast);
         setTimeout(() => {
@@ -106,12 +105,10 @@
             setTimeout(() => toast.remove(), 500);
         }, 3000);
     }
-    
     function copyAndToast(text){
         navigator.clipboard.writeText(text);
         showToast('Đã sao chép vào bộ nhớ tạm!', 'success');
     }
-
     async function deleteVisit(event, visitId) {
         event.preventDefault();
         if (!confirm('Bạn có chắc muốn xóa kết quả này không?')) return;
@@ -122,7 +119,7 @@
                 document.getElementById(`visit-row-${visitId}`)?.remove();
                 showToast('Đã xóa kết quả thành công.', 'success');
             } else {
-                showToast(`Lỗi: ${result.message}`, 'error');
+                showToast(result.message, 'error');
             }
         } catch (error) {
             showToast('Đã xảy ra lỗi khi cố gắng xóa kết quả.', 'error');
