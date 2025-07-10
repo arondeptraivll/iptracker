@@ -1,0 +1,76 @@
+<%- include('partials/header_vietnamese') %>
+
+<nav>
+    <ul>
+      <li><strong>Cài đặt Liên kết</strong></li>
+    </ul>
+    <ul>
+        <li><a href="/dashboard" role="button" class="secondary">Về Bảng điều khiển</a></li>
+    </ul>
+</nav>
+
+<div class="container">
+    <hgroup>
+        <h1>Cài đặt cho Liên kết</h1>
+        <p>Liên kết đích: <a href="<%= link.targetUrl %>" target="_blank" rel="noopener noreferrer"><code><%= link.targetUrl %></code></a></p>
+    </hgroup>
+    
+    <article>
+        <form action="/link/settings/<%= link.shortId %>" method="POST">
+            <header>Tùy chọn Bảo mật</header>
+            
+            <!-- CÀI ĐẶT CAPTCHA -->
+            <fieldset>
+                <label for="requireCaptcha">
+                    <input 
+                        type="checkbox" 
+                        id="requireCaptcha" 
+                        name="requireCaptcha"
+                        role="switch"
+                        <%= link.requireCaptcha ? 'checked' : '' %>>
+                    <strong>Yêu cầu Captcha:</strong> Khi được bật, người truy cập phải giải Captcha trước khi được chuyển hướng đến URL đích.
+                </label>
+            </fieldset>
+
+            <hr>
+            
+            <!-- (Khu vực này có thể được sử dụng cho các cài đặt trong tương lai) -->
+
+            <footer style="margin-top: 2rem;">
+                <p><small>Để lưu thay đổi, vui lòng xác thực bạn không phải là robot.</small></p>
+                <div class="h-captcha"
+                     data-sitekey="<%= hcaptcha_site_key %>"
+                     data-callback="onSaveSettingsCaptchaSuccess"
+                     data-expired-callback="onSaveSettingsCaptchaExpired"
+                     data-error-callback="onSaveSettingsCaptchaError">
+                </div>
+                <button type="submit" id="save-settings-btn" disabled>Lưu thay đổi</button>
+            </footer>
+        </form>
+    </article>
+</div>
+
+<script>
+    const saveBtn = document.getElementById('save-settings-btn');
+
+    function onSaveSettingsCaptchaSuccess(token) {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+        }
+    }
+
+    function onSaveSettingsCaptchaExpired() {
+        if (saveBtn) {
+            saveBtn.disabled = true;
+        }
+    }
+    
+    function onSaveSettingsCaptchaError(err) {
+        console.error('Lỗi hCaptcha khi lưu cài đặt:', err);
+        if (saveBtn) {
+            saveBtn.disabled = true;
+        }
+    }
+</script>
+
+<%- include('partials/footer_vietnamese') %>
