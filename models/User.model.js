@@ -16,9 +16,6 @@ const User = sequelize.define('User', {
     },
 });
 
-// Import model Key sau khi User được định nghĩa để tránh lỗi cyclic dependency
-const Key = require('./Key.model');
-User.hasOne(Key, { foreignKey: 'userDiscordId' });
-Key.belongsTo(User, { foreignKey: 'userDiscordId' });
+// KHÔNG CÒN ĐỊNH NGHĨA QUAN HỆ Ở ĐÂY NỮA
 
 module.exports = User;
