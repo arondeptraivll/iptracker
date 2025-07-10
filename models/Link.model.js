@@ -15,11 +15,12 @@ const Link = sequelize.define('Link', {
         type: DataTypes.DATE,
         defaultValue: DataTypes.NOW,
     },
-    // ---- CỘT CÀI ĐẶT MỚI ----
-    requireCaptcha: {
+    // ---- THAY ĐỔI CỘT CÀI ĐẶT ----
+    // Đổi tên từ requireCaptcha thành blockForeignIPs
+    blockForeignIPs: {
         type: DataTypes.BOOLEAN,
         allowNull: false,
-        defaultValue: false, // Mặc định là TẮT
+        defaultValue: false, // Mặc định là TẮT (cho phép tất cả)
     },
 });
 
