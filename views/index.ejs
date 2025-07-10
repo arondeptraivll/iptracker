@@ -5,11 +5,46 @@
         <h1>IP Tracker</h1>
         <h2>bởi Gemlogin Tool (TuanHaii)</h2>
     </hgroup>
-    <p>Vui lòng đăng nhập bằng tài khoản Discord để tiếp tục.</p>
-    <a href="/auth/discord" role="button" class="contrast">
-      <svg width="24" height="24" viewBox="0 0 24 24" ...><!-- Icon SVG Discord --> </svg>
-      Đăng nhập với Discord
-    </a>
+    <p>Vui lòng xác thực bạn không phải người máy để tiếp tục.</p>
+    
+    <div style="display: inline-block; margin-top: 1rem;">
+        <div class="h-captcha" 
+             data-sitekey="<%= HCAPTCHA_SITE_KEY %>"
+             data-callback="onCaptchaSuccess"
+             data-expired-callback="onCaptchaExpired"
+             data-error-callback="onCaptchaError">
+        </div>
+    </div>
+    
+    <div style="margin-top: 1.5rem;">
+        <a href="/auth/discord" 
+           id="login-button" 
+           role="button" 
+           class="contrast" 
+           data-captcha-disabled>
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle; margin-right: 8px;">
+              <path d="M19.54 5.34a2.06 2.06 0 0 0-2.06-2.06c-1.22.61-2.45 1.22-3.67 1.83A11.12 11.12 0 0 0 12 5c-1.12 0-2.24.1-3.31.29-1.22-.61-2.45-1.22-3.67-1.83a2.06 2.06 0 0 0-2.06 2.06C1.09 9.38 0 13.43 0 17.47c0 2.22 1.53 4.05 3.42 4.49a2.43 2.43 0 0 0 .58-.09c.39-.15.7-.42.89-.8a1.2 1.2 0 0 1 1.09-.7c.39 0 .7.18.91.49a1 1 0 0 0 .8.41c.4 0 .7-.17.92-.48a1.2 1.2 0 0 1 1.09-.7c.39 0 .7.18.91.49a1 1 0 0 0 .8.41c.4 0 .7-.17.92-.48.2-.38.51-.65.9-.8.1-.03.2-.06.3-.09A3.56 3.56 0 0 0 24 17.47c0-4.04-1.09-8.09-2.46-12.13zM8 15a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm8 0a2 2 0 1 1 0-4 2 2 0 0 1 0 4z"/>
+            </svg>
+            Đăng nhập với Discord
+        </a>
+    </div>
 </div>
+
+<script>
+    const loginButton = document.getElementById('login-button');
+
+    function onCaptchaSuccess(token) {
+        if(loginButton) loginButton.removeAttribute('data-captcha-disabled');
+    }
+    
+    function onCaptchaExpired() {
+        if(loginButton) loginButton.setAttribute('data-captcha-disabled', '');
+    }
+
+    function onCaptchaError(error) {
+        console.error('Lỗi Captcha:', error);
+        if(loginButton) loginButton.setAttribute('data-captcha-disabled', '');
+    }
+</script>
 
 <%- include('partials/footer_vietnamese') %>
