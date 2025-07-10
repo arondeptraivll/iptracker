@@ -1,4 +1,3 @@
-// Import các thư viện cần thiết
 const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
@@ -7,23 +6,21 @@ const bodyParser = require('body-parser');
 const cron = require('node-cron');
 const { Op } = require('sequelize');
 
-// Import cấu hình và models
-const sequelize = require('./config/database');
-const User = require('./models/User.model');
-const Link = require('./models/Link.model');
-const Key = require('./models/Key.model'); // Thêm model Key
+// --- THAY ĐỔI CHÍNH ---
+// Import tất cả từ file quản lý model mới
+const { sequelize, User, Link, Key } = require('./models');
 
 // Import các route
 const authRoutes = require('./routes/auth');
 const appRoutes = require('./routes/app');
-const keyRoutes = require('./routes/key'); // Thêm route Key
+const keyRoutes = require('./routes/key');
 
 // Lấy các biến môi trường
 const PORT = process.env.PORT || 3000;
 const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID;
 const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
 const SESSION_SECRET = process.env.SESSION_SECRET;
-const BASE_URL = process.env.RENDER_EXTERNAL_URL; // Render cung cấp biến này tự động
+const BASE_URL = process.env.RENDER_EXTERNAL_URL;
 const HCAPTCHA_SITE_KEY = process.env.HCAPTCHA_SITE_KEY;
 
 // Kiểm tra các biến môi trường quan trọng
@@ -46,7 +43,7 @@ app.use(session({
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: 'auto', // Tự động bật secure cookie khi chạy trên HTTPS
+      secure: 'auto',
       httpOnly: true,
     }
 }));
@@ -77,13 +74,10 @@ passport.use(new DiscordStrategy({
     try {
         const { id, username, avatar } = profile;
         const avatarUrl = avatar ? `https://cdn.discordapp.com/avatars/${id}/${avatar}.png` : 'https://cdn.discordapp.com/embed/avatars/0.png';
-
+        
         const [user, created] = await User.findOrCreate({
             where: { discordId: id },
-            defaults: {
-                username: username,
-                avatar: avatarUrl
-            }
+            defaults: { username: username, avatar: avatarUrl }
         });
 
         if (!created && (user.username !== username || user.avatar !== avatarUrl)) {
@@ -111,17 +105,14 @@ cron.schedule('0 2 * * *', async () => {
     const now = new Date();
     console.log(`[CRON] Bắt đầu tác vụ dọn dẹp lúc ${now.toLocaleString('vi-VN')}...`);
     try {
-        // 1. Dọn dẹp link cũ (không có lượt truy cập trong 2 ngày)
         const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
         const deletedLinksCount = await Link.destroy({ where: { lastVisitedAt: { [Op.lt]: twoDaysAgo } } });
         if(deletedLinksCount > 0) console.log(`[CRON] Đã xóa ${deletedLinksCount} liên kết cũ.`);
-
-        // 2. Dọn dẹp key đã hết hạn
+        
         const deletedKeysCount = await Key.destroy({ where: { expiresAt: { [Op.lt]: now } } });
         if(deletedKeysCount > 0) console.log(`[CRON] Đã xóa ${deletedKeysCount} key đã hết hạn.`);
         
         console.log('[CRON] Tác vụ dọn dẹp hoàn tất.');
-
     } catch (error) {
         console.error('[CRON] Lỗi trong quá trình dọn dẹp:', error);
     }
