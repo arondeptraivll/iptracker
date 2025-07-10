@@ -1,12 +1,9 @@
 const router = require('express').Router();
 const { nanoid } = require('nanoid');
-const sequelize = require('../config/database');
-const Link = require('../models/Link.model');
-const Visit = require('../models/Visit.model');
-const Key = require('../models/Key.model');
 const { Op } = require('sequelize');
+const { Link, Visit, Key, sequelize } = require('../models');
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-const { verifyCaptcha } = require('../middleware/captcha'); // <-- IMPORT MIDDLEWARE
+const { verifyCaptcha } = require('../middleware/captcha');
 
 // --- MIDDLEWARES ---
 
@@ -23,7 +20,6 @@ async function isKeyActive(req, res, next) {
     }
     try {
         const activeKey = await Key.findOne({ where: { userDiscordId: req.user.discordId }});
-
         if (activeKey && new Date() < new Date(activeKey.expiresAt)) {
             req.user.hasActiveKey = true;
             return next();
@@ -41,18 +37,16 @@ async function isKeyActive(req, res, next) {
 
 // --- CÁC TRANG CHÍNH (PAGES) ---
 
-// Trang chủ / Đăng nhập
 router.get('/', (req, res) => {
     if (req.isAuthenticated()) {
         return res.redirect('/dashboard');
     }
     res.render('index', { 
         title: 'IP Tracker | Đăng nhập',
-        HCAPTCHA_SITE_KEY: process.env.HCAPTCHA_SITE_KEY // Truyền Site Key ra view
+        HCAPTCHA_SITE_KEY: process.env.HCAPTCHA_SITE_KEY
     });
 });
 
-// Trang bảng điều khiển
 router.get('/dashboard', isLoggedIn, async (req, res) => {
     try {
         const activeKey = await Key.findOne({ where: { userDiscordId: req.user.discordId }});
@@ -78,7 +72,6 @@ router.get('/dashboard', isLoggedIn, async (req, res) => {
     }
 });
 
-// Trang chi tiết một lượt truy cập (BẢO VỆ BỞI KEY)
 router.get('/details/:visitId', isLoggedIn, isKeyActive, async (req, res) => {
     try {
         const { visitId } = req.params;
@@ -86,11 +79,9 @@ router.get('/details/:visitId', isLoggedIn, isKeyActive, async (req, res) => {
             where: { id: visitId },
             include: { model: Link, where: { userDiscordId: req.user.discordId }, required: true }
         });
-
         if (!visit) {
             return res.status(404).send('Không tìm thấy lượt truy cập hoặc bạn không có quyền.');
         }
-
         res.render('details', {
             title: `Chi tiết Lượt truy cập - ${visit.ipAddress}`,
             visit: visit,
@@ -102,10 +93,8 @@ router.get('/details/:visitId', isLoggedIn, isKeyActive, async (req, res) => {
     }
 });
 
-
 // --- CÁC HÀNH ĐỘNG (ACTIONS) ---
 
-// Tạo liên kết mới (BẢO VỆ BỞI KEY VÀ CAPTCHA)
 router.post('/create-link', isLoggedIn, isKeyActive, verifyCaptcha, async (req, res) => {
     const { targetUrl } = req.body;
     if (!targetUrl || !(targetUrl.startsWith('http://') || targetUrl.startsWith('https://'))) {
@@ -124,7 +113,6 @@ router.post('/create-link', isLoggedIn, isKeyActive, verifyCaptcha, async (req, 
     }
 });
 
-// Xóa một liên kết (KHÔNG cần key)
 router.post('/delete-link/:shortId', isLoggedIn, async (req, res) => {
     try {
         const { shortId } = req.params;
@@ -141,7 +129,6 @@ router.post('/delete-link/:shortId', isLoggedIn, async (req, res) => {
     }
 });
 
-// Xóa một kết quả truy cập (KHÔNG cần key)
 router.post('/delete-visit/:visitId', isLoggedIn, async (req, res) => {
     try {
         const { visitId } = req.params;
@@ -149,7 +136,6 @@ router.post('/delete-visit/:visitId', isLoggedIn, async (req, res) => {
             where: { id: visitId },
             include: { model: Link, where: { userDiscordId: req.user.discordId }, required: true }
         });
-        
         if (visit) {
             await visit.destroy();
             res.json({ success: true, message: "Đã xóa kết quả." });
@@ -162,10 +148,8 @@ router.post('/delete-visit/:visitId', isLoggedIn, async (req, res) => {
     }
 });
 
-
 // --- API & TRACKING ---
 
-// API lấy chi tiết IP (BẢO VỆ BỞI KEY)
 router.get('/ip-details/:ip', isLoggedIn, isKeyActive, async (req, res) => {
     const ip = req.params.ip;
     if (!ip) {
@@ -181,7 +165,6 @@ router.get('/ip-details/:ip', isLoggedIn, isKeyActive, async (req, res) => {
     }
 });
 
-// Route tracking trung gian
 router.get('/t/:shortId', async (req, res) => {
     try {
         const link = await Link.findOne({ where: { shortId: req.params.shortId } });
@@ -195,7 +178,6 @@ router.get('/t/:shortId', async (req, res) => {
     }
 });
 
-// Endpoint nhận log từ client
 router.post('/log', async (req, res) => {
     const { shortId, fingerprint, components } = req.body;
     if (!shortId || !fingerprint || !components) {
@@ -207,7 +189,6 @@ router.post('/log', async (req, res) => {
         if (!link) {
             return res.status(404).json({ status: 'error', message: 'Không tìm thấy liên kết' });
         }
-        
         let finalFingerprintId;
         const existingVisit = await Visit.findOne({
             where: { fingerprint: fingerprint },
@@ -218,7 +199,6 @@ router.post('/log', async (req, res) => {
         } else {
             finalFingerprintId = nanoid(10);
         }
-
         await sequelize.transaction(async (t) => {
             await Visit.create({
                 ipAddress: ipAddress.split(',')[0].trim(),
@@ -228,11 +208,9 @@ router.post('/log', async (req, res) => {
                 fingerprintComponents: components,
                 linkShortId: shortId
             }, { transaction: t });
-    
             link.lastVisitedAt = new Date();
             await link.save({ transaction: t });
         });
-        
         res.json({ status: 'success' });
     } catch (error) {
         console.error("Lỗi khi ghi log:", error);
