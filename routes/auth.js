@@ -1,17 +1,18 @@
 const router = require('express').Router();
 const passport = require('passport');
+const { User } = require('../models'); // SỬA Ở ĐÂY
 
-// Chuyển hướng đến Discord để xác thực
+// Route: /auth/discord
 router.get('/discord', passport.authenticate('discord'));
 
-// Route callback sau khi Discord xác thực thành công
+// Route: /auth/discord/callback
 router.get('/discord/callback', passport.authenticate('discord', {
-    failureRedirect: '/' // Thất bại thì quay lại trang chủ
+    failureRedirect: '/'
 }), (req, res) => {
-    res.redirect('/dashboard'); // Thành công thì vào trang quản lý
+    res.redirect('/dashboard');
 });
 
-// Đăng xuất
+// Route: /auth/logout
 router.get('/logout', (req, res, next) => {
     req.logout((err) => {
         if (err) { return next(err); }
