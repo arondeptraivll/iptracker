@@ -6,10 +6,7 @@
     <title><%= title %></title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
     
-    <!-- THÊM SCRIPT SWEETALERT2 -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    
-    <!-- SCRIPT HCAPTCHA -->
     <script src="https://js.hcaptcha.com/1/api.js" async defer></script>
     
     <style>
@@ -29,25 +26,29 @@
             background-color: var(--pico-card-background-color);
             color: var(--pico-card-color);
         }
+        /* TÙY CHỈNH NÚT GIỐNG VỚI ẢNH MẪU */
+        .swal2-styled.swal2-confirm {
+            background-color: #7950f2 !important; /* Màu tím violet */
+            border-radius: 8px !important;
+        }
+        .swal2-styled.swal2-deny, .swal2-styled.swal2-cancel {
+            background-color: #fa5252 !important; /* Màu đỏ */
+             border-radius: 8px !important;
+        }
+
     </style>
     
-    <!-- HÀM HELPER CHUNG ĐỂ HIỂN THỊ THÔNG BÁO -->
+    <!-- HÀM HELPER CHUNG ĐƯỢC THAY ĐỔI -->
     <script>
-        function showSwalToast(title, icon = 'success') {
+        // Từ toast -> notification lớn ở giữa
+        function showSwalNotification(title, text = '', icon = 'success') {
             Swal.fire({
                 title: title,
+                text: text,
                 icon: icon,
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false,
-                timer: 3000,
-                timerProgressBar: true,
+                confirmButtonText: 'OK',
                 customClass: {
                     popup: 'swal2-dark' // Áp dụng style nền tối
-                },
-                didOpen: (toast) => {
-                    toast.addEventListener('mouseenter', Swal.stopTimer);
-                    toast.addEventListener('mouseleave', Swal.resumeTimer);
                 }
             });
         }
