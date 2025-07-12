@@ -6,39 +6,52 @@
     <title><%= title %></title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@1/css/pico.min.css">
     
+    <!-- THÊM SCRIPT SWEETALERT2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    
     <!-- SCRIPT HCAPTCHA -->
     <script src="https://js.hcaptcha.com/1/api.js" async defer></script>
     
     <style>
-        [role="tablist"] {
-            display: flex;
-            border-bottom: 1px solid var(--pico-muted-border-color);
-            margin-bottom: 1rem;
-        }
-        [role="tab"] {
-            border: none; background: none; padding: 0.75rem 1rem;
-            cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
-        }
-        [role="tab"][aria-selected="true"] {
-            border-bottom-color: var(--pico-primary);
-            color: var(--pico-primary-focus);
-        }
-        .toast {
-            padding: 1rem 1.5rem; border-radius: var(--pico-border-radius);
-            margin-bottom: 1.5rem; color: var(--pico-contrast);
-            border-left: 5px solid var(--pico-primary);
-        }
-        .toast.success {
-            background-color: hsla(var(--pico-color-green-h), var(--pico-color-green-s), var(--pico-color-green-l), 0.15);
-            border-left-color: var(--pico-color-green-500);
-        }
-        .toast.error {
-            background-color: hsla(var(--pico-color-red-h), var(--pico-color-red-s), var(--pico-color-red-l), 0.15);
-            border-left-color: var(--pico-color-red-500);
-        }
+        /* CSS cũ cho Tab, Fieldset... giữ nguyên */
+        [role="tablist"] { display: flex; border-bottom: 1px solid var(--pico-muted-border-color); margin-bottom: 1rem; }
+        [role="tab"] { border: none; background: none; padding: 0.75rem 1rem; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+        [role="tab"][aria-selected="true"] { border-bottom-color: var(--pico-primary); color: var(--pico-primary-focus); }
         fieldset[disabled] { opacity: 0.5; pointer-events: none; }
         [data-captcha-disabled] { opacity: 0.6; cursor: not-allowed; pointer-events: none; }
+
+        /* CSS MỚI CHO SWEETALERT NỀN TỐI */
+        body.swal2-shown > [aria-hidden="true"] {
+            transition: 0.1s filter;
+            filter: blur(5px);
+        }
+        .swal2-popup.swal2-dark {
+            background-color: var(--pico-card-background-color);
+            color: var(--pico-card-color);
+        }
     </style>
+    
+    <!-- HÀM HELPER CHUNG ĐỂ HIỂN THỊ THÔNG BÁO -->
+    <script>
+        function showSwalToast(title, icon = 'success') {
+            Swal.fire({
+                title: title,
+                icon: icon,
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true,
+                customClass: {
+                    popup: 'swal2-dark' // Áp dụng style nền tối
+                },
+                didOpen: (toast) => {
+                    toast.addEventListener('mouseenter', Swal.stopTimer);
+                    toast.addEventListener('mouseleave', Swal.resumeTimer);
+                }
+            });
+        }
+    </script>
 </head>
 <body>
     <main class="container">
