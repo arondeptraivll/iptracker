@@ -11,8 +11,6 @@
         <p>Kích hoạt Key của bạn để sử dụng đầy đủ các tính năng của công cụ.</p>
     </hgroup>
     
-    <!-- KHỐI THÔNG BÁO TĨNH ĐÃ BỊ XÓA -->
-    
     <% if (userKey && new Date() < new Date(userKey.expiresAt)) { %>
         <!-- GIAO DIỆN KHI ĐÃ KÍCH HOẠT KEY -->
         <article>
@@ -57,10 +55,8 @@
 </div>
 
 <script>
-    // --- KHAI BÁO BIẾN STATUS TỪ SERVER ---
     const pageStatus = <%- JSON.stringify(keyStatus || null) %>;
 
-    // --- HIỂN THỊ THÔNG BÁO KHI TRANG TẢI ---
     document.addEventListener('DOMContentLoaded', () => {
         if (!pageStatus) return;
         
@@ -75,7 +71,7 @@
 
         const message = messages[pageStatus];
         if (message) {
-            Swal.fire({ ...message, customClass: { popup: 'swal2-dark' } });
+            showSwalNotification(message.title, message.text, message.icon);
         }
     });
 </script>
