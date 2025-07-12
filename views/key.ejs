@@ -1,12 +1,8 @@
 <%- include('partials/header_vietnamese') %>
 
 <nav>
-    <ul>
-      <li><strong>IP Tracker</strong> by Gemlogin Tool (TuanHaii)</li>
-    </ul>
-    <ul>
-        <li><a href="/dashboard" role="button" class="secondary">Về Bảng điều khiển</a></li>
-    </ul>
+    <ul><li><strong>Quản lý Key</strong></li></ul>
+    <ul><li><a href="/dashboard" role="button" class="secondary">Về Bảng điều khiển</a></li></ul>
 </nav>
 
 <div class="container">
@@ -15,26 +11,7 @@
         <p>Kích hoạt Key của bạn để sử dụng đầy đủ các tính năng của công cụ.</p>
     </hgroup>
     
-    <!-- HỆ THỐNG THÔNG BÁO CẬP NHẬT -->
-    <div id="toast-container-local">
-        <% if(keyStatus) { %>
-            <% if(keyStatus === 'activated') { %>
-                <div class="toast success">Đã kích hoạt key thành công! Chúc bạn trải nghiệm vui vẻ.</div>
-            <% } else if(keyStatus === 'deactivated') { %>
-                <div class="toast">Đã hủy kích hoạt key.</div>
-            <% } else if(keyStatus.startsWith('error')) { %>
-                <div class="toast error">
-                    <% if(keyStatus === 'error_required') { %> <strong>Lỗi:</strong> Yêu cầu Key để thực hiện hành động này. Vui lòng kích hoạt key.
-                    <% } else if(keyStatus === 'error_notfound') { %> <strong>Lỗi:</strong> Key không hợp lệ hoặc không tồn tại.
-                    <% } else if(keyStatus === 'error_expired') { %> <strong>Lỗi:</strong> Key này đã hết hạn. Vui lòng lấy key mới.
-                    <% } else if(keyStatus === 'error_taken') { %> <strong>Lỗi:</strong> Key này đã được người khác kích hoạt. Vui lòng lấy key mới.
-                    <% } else if(keyStatus === 'error_missing') { %> <strong>Lỗi:</strong> Bạn chưa nhập key.
-                    <% } else { %> <strong>Lỗi:</strong> Có lỗi xảy ra phía máy chủ. Vui lòng thử lại.
-                    <% } %>
-                </div>
-            <% } %>
-        <% } %>
-    </div>
+    <!-- KHỐI THÔNG BÁO TĨNH ĐÃ BỊ XÓA -->
     
     <% if (userKey && new Date() < new Date(userKey.expiresAt)) { %>
         <!-- GIAO DIỆN KHI ĐÃ KÍCH HOẠT KEY -->
@@ -43,7 +20,7 @@
             <p><strong>Key của bạn:</strong> <code style="word-break: break-all;"><%= userKey.keyString %></code></p>
             <p><strong>Thời gian còn lại:</strong> <span id="countdown" style="font-weight: bold; color: var(--pico-color-green-400);"></span></p>
             <footer>
-                <form action="/key/deactivate" method="POST" onsubmit="return confirm('Bạn có chắc muốn xóa key này không? Bạn sẽ phải lấy lại key mới.')">
+                <form action="/key/deactivate" method="POST" onsubmit="return confirm('Bạn có chắc muốn xóa key này? Bạn sẽ phải lấy lại key mới.')">
                     <button class="secondary" type="submit">Xóa Key</button>
                 </form>
             </footer>
@@ -59,18 +36,14 @@
                     location.reload();
                     return;
                 }
-                const hours = Math.floor(distance / (1000 * 60 * 60));
-                const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-                const seconds = Math.floor((distance % (1000 * 60)) / 1000);
+                const hours = Math.floor(distance / 36e5);
+                const minutes = Math.floor((distance % 36e5) / 6e4);
+                const seconds = Math.floor((distance % 6e4) / 1000);
                 countdownEl.innerHTML = `${hours} giờ ${minutes} phút ${seconds} giây`;
             }, 1000);
         </script>
-
     <% } else { %>
         <!-- GIAO DIỆN KHI CHƯA CÓ KEY -->
-        <div class="toast error" role="alert">
-            <strong>Chú ý:</strong> Vui lòng nhập Key để sử dụng các tính năng của công cụ.
-        </div>
         <form action="/key/activate" method="POST">
             <input type="text" name="keyString" placeholder="Nhập Key của bạn vào đây sau khi đã vượt link" required autocomplete="off">
             <button type="submit">Kích hoạt</button>
@@ -82,4 +55,29 @@
         </div>
     <% } %>
 </div>
+
+<script>
+    // --- KHAI BÁO BIẾN STATUS TỪ SERVER ---
+    const pageStatus = <%- JSON.stringify(keyStatus || null) %>;
+
+    // --- HIỂN THỊ THÔNG BÁO KHI TRANG TẢI ---
+    document.addEventListener('DOMContentLoaded', () => {
+        if (!pageStatus) return;
+        
+        const messages = {
+            activated: { title: 'Kích hoạt thành công!', text: 'Chúc bạn trải nghiệm vui vẻ.', icon: 'success' },
+            deactivated: { title: 'Đã hủy kích hoạt key.', icon: 'info' },
+            error_required: { title: 'Yêu cầu Key', text: 'Vui lòng lấy và kích hoạt Key để sử dụng tính năng này.', icon: 'warning' },
+            error_notfound: { title: 'Key không hợp lệ', text: 'Key bạn nhập không tồn tại hoặc đã bị xóa.', icon: 'error' },
+            error_expired: { title: 'Key đã hết hạn', text: 'Vui lòng lấy một key mới.', icon: 'error' },
+            error_taken: { title: 'Key đã được sử dụng', text: 'Key này đã được một người dùng khác kích hoạt.', icon: 'error' }
+        };
+
+        const message = messages[pageStatus];
+        if (message) {
+            Swal.fire({ ...message, customClass: { popup: 'swal2-dark' } });
+        }
+    });
+</script>
+
 <%- include('partials/footer_vietnamese') %>
