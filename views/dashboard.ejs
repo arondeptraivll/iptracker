@@ -8,14 +8,13 @@
   </ul>
 </nav>
 
-<!-- VÙNG THÔNG BÁO TĨNH ĐÃ BỊ XÓA -->
+<!-- XÓA VÙNG THÔNG BÁO TĨNH ĐI -->
 <% if (!hasActiveKey) { %>
     <article class="custom-warning">
         Key của bạn chưa được kích hoạt hoặc đã hết hạn. Vui lòng vào trang <b>Quản lý Key</b> để các tính năng được mở khóa.
     </article>
+    <style>.custom-warning { border-left: 5px solid var(--pico-color-amber-500); padding: 0.1rem 1.5rem; } </style>
 <% } %>
-
-<style>.custom-warning { border-left: 5px solid var(--pico-color-amber-500); padding: 0.1rem 1.5rem; } </style>
 
 <fieldset <%= !hasActiveKey ? 'disabled' : '' %> >
   <hgroup><h2>Tạo liên kết theo dõi mới</h2><p>Giải Captcha để kích hoạt nút "Tạo liên kết".</p></hgroup>
@@ -49,7 +48,7 @@
                                     <td><%= visit.ipAddress %></td>
                                     <td><%= new Date(visit.timestamp).toLocaleString('vi-VN') %></td>
                                     <td style="text-align: right; white-space: nowrap;">
-                                        <a href="<%= hasActiveKey ? '/details/' + visit.id : '#' %>" role="button" class="contrast" <%= !hasActiveKey ? 'aria-disabled="true"' : '' %> onclick="<%= !hasActiveKey ? "showSwalToast('Vui lòng kích hoạt Key để xem chi tiết.', 'warning'); return false;" : "" %>" style="padding: 5px 10px; margin:0 5px 0 0;">Chi tiết</a>
+                                        <a href="<%= hasActiveKey ? '/details/' + visit.id : '#' %>" role="button" class="contrast" <%= !hasActiveKey ? 'aria-disabled="true"' : '' %> onclick="<%= !hasActiveKey ? "showSwalNotification('Yêu cầu Key', 'Vui lòng kích hoạt Key để xem chi tiết.', 'warning'); return false;" : "" %>" style="padding: 5px 10px; margin:0 5px 0 0;">Chi tiết</a>
                                         <a href="#" role="button" class="secondary" style="padding: 5px 10px; margin:0;" onclick="deleteVisit(event, '<%= visit.id %>')">Xóa</a>
                                     </td>
                                 </tr>
@@ -76,9 +75,9 @@
     // --- LOGIC HÀNH ĐỘNG CỦA TRANG ---
     function copyAndNotify(text){
         navigator.clipboard.writeText(text).then(() => {
-            showSwalToast('Đã sao chép vào bộ nhớ tạm!');
+            showSwalNotification('Sao chép thành công!', 'Liên kết đã được sao chép vào bộ nhớ tạm.', 'success');
         }).catch(err => {
-            showSwalToast('Sao chép thất bại!', 'error');
+            showSwalNotification('Sao chép thất bại!', '', 'error');
         });
     }
 
@@ -92,6 +91,9 @@
             showCancelButton: true,
             confirmButtonText: 'Vâng, xóa nó!',
             cancelButtonText: 'Hủy bỏ',
+            denyButtonText: 'Từ chối',
+            confirmButtonColor: '#fa5252',
+            cancelButtonColor: '#495057',
             customClass: { popup: 'swal2-dark' }
         });
 
@@ -102,12 +104,12 @@
             const data = await response.json();
             if (data.success) {
                 document.getElementById(`visit-row-${visitId}`)?.remove();
-                showSwalToast('Đã xóa kết quả thành công.', 'success');
+                showSwalNotification('Đã xóa!', 'Kết quả đã được xóa thành công.', 'success');
             } else {
-                showSwalToast(data.message || 'Không thể xóa kết quả.', 'error');
+                showSwalNotification('Lỗi', data.message || 'Không thể xóa kết quả.', 'error');
             }
         } catch (error) {
-            showSwalToast('Đã xảy ra lỗi khi xóa kết quả.', 'error');
+            showSwalNotification('Lỗi', 'Đã xảy ra lỗi khi xóa kết quả.', 'error');
         }
     }
     
@@ -120,20 +122,12 @@
             settings_saved: { title: 'Đã lưu cài đặt!', icon: 'success' },
             link_deleted: { title: 'Đã xóa liên kết.', icon: 'info' },
             captcha_error: { title: 'Lỗi Captcha', text: 'Xác thực không thành công, vui lòng thử lại.', icon: 'error' },
-            invalid_url: { title: 'URL không hợp lệ', text: 'Vui lòng nhập một URL hợp lệ.', icon: 'error' }
+            invalid_url: { title: 'URL không hợp lệ', text: 'Vui lòng nhập một URL bắt đầu với http:// hoặc https://.', icon: 'error' }
         };
 
         const message = messages[pageStatus];
         if (message) {
-            Swal.fire({
-                ...message,
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false,
-                timer: 3500,
-                timerProgressBar: true,
-                customClass: { popup: 'swal2-dark' }
-            });
+            showSwalNotification(message.title, message.text, message.icon);
         }
     });
 </script>
